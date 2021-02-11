@@ -100,17 +100,18 @@ namespace Conexus
         //Stores logs temporarily until the message textblock is initiated
         List<string> logTmp = new List<string>();
 
+        //TODO Convert backslashes to frontslashes for future versions
         //Added v1.3.0
         //Create a root directory in the user's Documents folder for all generated data
-        string rootPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Conexus";
+        string rootPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "/Conexus";
         //Create a data directory for all text files (HTML.txt, Mods.txt, ModInfo.txt)
-        string dataPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Conexus\\Data";
+        string dataPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "/Conexus/Data";
         //Create a config directory for all user data
-        string configPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Conexus\\Config";
+        string configPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "/Conexus/Config";
         //Create a directory that will hold Links.txt
-        string linksPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Conexus\\Links";
+        string linksPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "/Conexus/Links";
         //Create a directory that will hold logs
-        string logsPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Conexus\\Logs";
+        string logsPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "/Conexus/Logs";
 
         /*
          * 
@@ -174,7 +175,7 @@ namespace Conexus
             //Very basic, unstead exception handling
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(CurrentDomain_UnhandledException);
 
-            ini = new INIFile(configPath + "\\config.ini");
+            ini = new INIFile(configPath + "/config.ini");
 
             this.DataContext = this;
         }
@@ -599,7 +600,7 @@ namespace Conexus
             //If this directory is deleted or otherwise not found, it needs to be created, otherwise stuff will break
             if (!Directory.Exists(dataPath))
             {
-                ShowMessage("WARN: Conexus\\Data is missing! Creating now");
+                ShowMessage("WARN: Conexus/Data is missing! Creating now");
 
                 Directory.CreateDirectory(dataPath);
             }
@@ -883,9 +884,9 @@ namespace Conexus
                 appIDs.Clear();
 
             //Overwrite whatever may be in ModInfo.txt, if it exists
-            if (File.Exists(dataPath + "\\ModInfo.txt"))
+            if (File.Exists(dataPath + "/ModInfo.txt"))
             {
-                File.WriteAllText(dataPath + "\\ModInfo.txt", String.Empty);
+                File.WriteAllText(dataPath + "/ModInfo.txt", String.Empty);
 
                 //Added v1.3.0
                 ShowMessage("PROC: ModInfo contents have been ovewritten");
@@ -898,7 +899,7 @@ namespace Conexus
             //Create a new WebClient
             WebClient webClient = new WebClient();
             //Download the desired collection and save the file
-            await Task.Run(() => webClient.DownloadFile(url, fileDir + "\\HTML.txt"));
+            await Task.Run(() => webClient.DownloadFile(url, fileDir + "/HTML.txt"));
             //Added v1.2.0
             //Free up resources, cleanup
             webClient.Dispose();
@@ -924,7 +925,7 @@ namespace Conexus
             //List of strings to store a line that houses all neccesary info for each mod
             List<string> mods = new List<string>();
             //Create a file reader and load the previously saved source file
-            StreamReader file = new StreamReader(@fileDir + "\\HTML.txt");
+            StreamReader file = new StreamReader(@fileDir + "/HTML.txt");
 
             //Added v1.3.0
             ShowMessage("PROC: Parsing HTML source now");
@@ -955,7 +956,7 @@ namespace Conexus
             file.Close();
 
             //Write this information to a file
-            WriteToFile(mods.ToArray(), fileDir + "\\Mods.txt");
+            WriteToFile(mods.ToArray(), fileDir + "/Mods.txt");
 
             //Added v1.2.0
             //Changed v1.3.0, formatting
@@ -981,7 +982,7 @@ namespace Conexus
             //Stores the final folder index (with leading zeroes)
             string folderIndex_S = "";
             //Load the previously stored file for further refinement
-            StreamReader file = new StreamReader(@fileDir + "\\Mods.txt");
+            StreamReader file = new StreamReader(@fileDir + "/Mods.txt");
 
             //Add v1.3.0
             //Provide feedback
@@ -1045,7 +1046,7 @@ namespace Conexus
             file.Close();
 
             //Write the modInfo to a text file
-            WriteToFile(modInfo.ToArray(), @fileDir + "\\ModInfo.txt");
+            WriteToFile(modInfo.ToArray(), @fileDir + "/ModInfo.txt");
 
             //Added v1.3.0
             //Save logs to file
@@ -1061,9 +1062,9 @@ namespace Conexus
             // > Ignore: * 50% Stealth Chance in Veteran Quests
 
             //Overwrite whatever may be in ModInfo.txt, if it exists
-            if (File.Exists(linksPath + "\\ModInfo.txt"))
+            if (File.Exists(linksPath + "/ModInfo.txt"))
             {
-                File.WriteAllText(linksPath + "\\ModInfo.txt", String.Empty);
+                File.WriteAllText(linksPath + "/ModInfo.txt", String.Empty);
 
                 //Added v1.3.0
                 ShowMessage("PROC: ModInfo contents have been ovewritten");
@@ -1087,7 +1088,7 @@ namespace Conexus
             //Stores the final folder index (with leading zeroes)
             string folderIndex_S = "";
             //Load the previously stored file for further refinement
-            StreamReader file = new StreamReader(@fileDir + "\\Links.txt");
+            StreamReader file = new StreamReader(@fileDir + "/Links.txt");
 
             //Added v1.3.0
             ShowMessage("PROC: Links.txt will now be parsed for mod info");
@@ -1136,7 +1137,7 @@ namespace Conexus
             ShowMessage("INFO: Finished processing mod info in Links file");
 
             //Write the modInfo to a text file
-            WriteToFile(modInfo.ToArray(), @fileDir + "\\ModInfo.txt");
+            WriteToFile(modInfo.ToArray(), @fileDir + "/ModInfo.txt");
 
             //Added v1.2.0
             //Close file, cleanup
@@ -1180,7 +1181,7 @@ namespace Conexus
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
             //Create a process that will contain all relevant SteamCMD commands for all mods
-            ProcessStartInfo processInfo = new ProcessStartInfo(steamcmd + "\\steamcmd.exe", " +login " + SteamUsername.Password + " " + SteamPassword.Password + " " + cmdList + "+quit");
+            ProcessStartInfo processInfo = new ProcessStartInfo(steamcmd + "/steamcmd.exe", " +login " + SteamUsername.Password + " " + SteamPassword.Password + " " + cmdList + "+quit");
 
             //Create a wrapper that will run all commands, wait for the process to finish, and then proceed to copying and renaming folders/files
             using (Process process = new Process())
@@ -1241,7 +1242,7 @@ namespace Conexus
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
             //Create a process that will contain all relevant SteamCMD commands for all mods
-            ProcessStartInfo processInfo = new ProcessStartInfo(steamcmd + "\\steamcmd.exe", " +login " + SteamUsername.Password + " " + SteamPassword.Password + " " + cmdList + "+quit");
+            ProcessStartInfo processInfo = new ProcessStartInfo(steamcmd + "/steamcmd.exe", " +login " + SteamUsername.Password + " " + SteamPassword.Password + " " + cmdList + "+quit");
 
             //Create a wrapper that will run all commands, wait for the process to finish, and then proceed to copying and renaming folders/files
             using (Process process = new Process())
@@ -1292,7 +1293,7 @@ namespace Conexus
                 for (int i = 0; i < appIDs.Count; i++)
                 {
                     //Changed v1.2.0, to async
-                    await Task.Run(() => source[i] = Path.Combine(steamcmd + "\\steamapps\\workshop\\content\\262060\\", appIDs[i]));
+                    await Task.Run(() => source[i] = Path.Combine(steamcmd + "/steamapps/workshop/content/262060/", appIDs[i]));
                 }
 
                 //Added v1.2.0
@@ -1346,9 +1347,9 @@ namespace Conexus
                 {
                     //Added v1.2.0
                     //Hopefully more reliable directory deletion
-                    DirectoryInfo dirInfo = new DirectoryInfo(@steamcmd + "\\steamapps\\workshop\\content\\262060\\");
+                    DirectoryInfo dirInfo = new DirectoryInfo(@steamcmd + "/steamapps/workshop/content/262060/");
 
-                    foreach (var dir in Directory.GetDirectories(@steamcmd + "\\steamapps\\workshop\\content\\262060\\"))
+                    foreach (var dir in Directory.GetDirectories(@steamcmd + "/steamapps/workshop/content/262060/"))
                     {
                         //if (!dir.Contains("_DD_TextFiles") && !dir.Contains("_Logs"))
                         //{
@@ -1387,7 +1388,7 @@ namespace Conexus
                 for (int i = 0; i < appIDs.Count; i++)
                 {
                     //Changed v1.2.0, to async
-                    await Task.Run(() => source[i] = Path.Combine(mods + "\\", modInfo[i]));
+                    await Task.Run(() => source[i] = Path.Combine(mods + "/", modInfo[i]));
                 }
 
                 //Added v1.2.0
@@ -1403,7 +1404,7 @@ namespace Conexus
                 for (int i = 0; i < modInfo.Count; i++)
                 {
                     //Changed v1.2.0, to async
-                    await Task.Run(() => destination[i] = Path.Combine(steamcmd + "\\steamapps\\workshop\\content\\262060\\", appIDs[i]));
+                    await Task.Run(() => destination[i] = Path.Combine(steamcmd + "/steamapps/workshop/content/262060/", appIDs[i]));
                 }
 
                 //Added v1.2.0
@@ -1702,7 +1703,7 @@ namespace Conexus
                 //Added v1.3.0
                 ShowMessage("INFO: Attempting to download HTML from given collection URL");
                 //Download the desired collection and save the file
-                await Task.Run(() => webClient.DownloadFile(url, fileDir + "\\HTML.txt"));
+                await Task.Run(() => webClient.DownloadFile(url, fileDir + "/HTML.txt"));
                 //Added v1.3.0
                 ShowMessage("INFO: Successfully downloaded HTML");
             }
@@ -1772,7 +1773,7 @@ namespace Conexus
                 ShowMessage("VERIFY: Given link is valid");
 
                 //Download the desired collection and save the file
-                await Task.Run(() => webClient.DownloadFile(url, fileDir + "\\HTML.txt"));
+                await Task.Run(() => webClient.DownloadFile(url, fileDir + "/HTML.txt"));
 
                 //Added v1.3.0
                 ShowMessage("INFO: HTML source has been downloaded");
@@ -1801,7 +1802,7 @@ namespace Conexus
                 //List of strings to store all ines in a given range
                 List<string> lines = new List<string>();
                 //Create a file reader and load the saved HTML file
-                StreamReader file = new StreamReader(@fileDir + "\\HTML.txt");
+                StreamReader file = new StreamReader(@fileDir + "/HTML.txt");
 
                 //Keeps track of line count
                 int lineCount = 0;
@@ -1914,7 +1915,7 @@ namespace Conexus
              */
 
             //Verify if this directory contains steamcmd.exe
-            if (File.Exists(fileDir + "\\steamcmd.exe"))
+            if (File.Exists(fileDir + "/steamcmd.exe"))
                 return true;
             else
                 return false;
@@ -1937,10 +1938,10 @@ namespace Conexus
                 //Temp string to store the root directory
                 string dirRoot = fileDir.Substring(0, fileDir.Length - 5);
                 //Temp string to store the _windows directory
-                string win = dirRoot + "\\_windows";
+                string win = dirRoot + "/_windows";
 
                 //Verify if this directory contains steamcmd.exe
-                if (File.Exists(win + "\\Darkest.exe"))
+                if (File.Exists(win + "/Darkest.exe"))
                     return true;
                 else
                     return false;
@@ -1970,8 +1971,8 @@ namespace Conexus
                 Directory.CreateDirectory(logsPath);
 
                 //Added v1.3.0
-                ShowMessage("INFO: No folder found in User\\Documents");
-                ShowMessage("INFO: Created Conexus\\Config, Conexus\\Data, Conexus\\Links, and Conexus\\Logs");
+                ShowMessage("INFO: No folder found in User/Documents");
+                ShowMessage("INFO: Created Conexus/Config, Conexus/Data, Conexus/Links, and Conexus/Logs");
             }
 
             if (!Directory.Exists(dataPath))
@@ -1979,7 +1980,7 @@ namespace Conexus
                 Directory.CreateDirectory(dataPath);
 
                 //Added v1.3.0
-                ShowMessage("WARN: Conexus\\Data missing! Folder created");
+                ShowMessage("WARN: Conexus/Data missing! Folder created");
             }
 
             if (!Directory.Exists(configPath))
@@ -1987,7 +1988,7 @@ namespace Conexus
                 Directory.CreateDirectory(configPath);
 
                 //Added v1.3.0
-                ShowMessage("WARN: Conexus\\Config missing! Folder created");
+                ShowMessage("WARN: Conexus/Config missing! Folder created");
             }
 
             if (!Directory.Exists(linksPath))
@@ -1995,7 +1996,7 @@ namespace Conexus
                 Directory.CreateDirectory(linksPath);
 
                 //Added v1.3.0
-                ShowMessage("WARN: Conexus\\Links missing! Folder created");
+                ShowMessage("WARN: Conexus/Links missing! Folder created");
             }
 
             if (!Directory.Exists(logsPath))
@@ -2003,14 +2004,14 @@ namespace Conexus
                 Directory.CreateDirectory(logsPath);
 
                 //Added v1.3.0
-                ShowMessage("WARN: Conexus\\Logs missing! Folder created");
+                ShowMessage("WARN: Conexus/Logs missing! Folder created");
             }
 
             //Changed v1.3.0, to use Documents\Conexus
             //Make sure that Links.txt exists
-            if (!File.Exists(linksPath + "\\Links.txt"))
+            if (!File.Exists(linksPath + "/Links.txt"))
             {
-                File.Create(linksPath + "\\Links.txt").Dispose();
+                File.Create(linksPath + "/Links.txt").Dispose();
 
                 //Added v1.3.0
                 ShowMessage("VERIFY: Links.txt not found, creating file");
@@ -2022,14 +2023,14 @@ namespace Conexus
             }
 
 
-            if (File.ReadAllBytes(configPath + "\\config.ini").Length == 0)
+            if (File.ReadAllBytes(configPath + "/config.ini").Length == 0)
             {
                 //Initialize data structure
-                ini["System"]["Root"] = rootPath.Replace(@"\\", @"\");
-                ini["System"]["Data"] = dataPath.Replace(@"\\", @"\");
-                ini["System"]["Config"] = configPath.Replace(@"\\", @"\");
-                ini["System"]["Links"] = linksPath.Replace(@"\\", @"\");
-                ini["System"]["Logs"] = logsPath.Replace(@"\\", @"\");
+                //ini["System"]["Root"] = rootPath.Replace(@"\\", @"\");
+                //ini["System"]["Data"] = dataPath.Replace(@"\\", @"\");
+                //ini["System"]["Config"] = configPath.Replace(@"\\", @"\");
+                //ini["System"]["Links"] = linksPath.Replace(@"\\", @"\");
+               // ini["System"]["Logs"] = logsPath.Replace(@"\\", @"\");
 
                 ini["Directories"]["Mods"] = "";
                 ini["Directories"]["SteamCMD"] = "";
@@ -2040,6 +2041,7 @@ namespace Conexus
                 ini["Misc"]["Method"] = "steam";
 
                 ini["Login"]["Username"] = "";
+                //THIS IS NOT SAFE! REMOVE IMMIDIATELY!!!
                 ini["Login"]["Password"] = "";
 
                 ini.Persist();
