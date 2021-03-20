@@ -1,5 +1,5 @@
 ﻿/*
-> Conexus (v1.3.0) for Darkest Dungeon
+> Conexus (v1.4.0) for Darkest Dungeon
     Created by MatthiosArcanus(Discord)/Hypocrita(Steam)/Hypocrita20XX(GitHub) 
     A GUI-based program designed to streamline the process of organizing mods according to an existing Steam collection or list of links
     Handles downloading and updating mods through the use of SteamCMD (https://developer.valvesoftware.com/wiki/SteamCMD)
@@ -9,15 +9,15 @@
     Authors: Sven Groot, Augusto Proiete
     Source: http://www.ookii.org/software/dialogs/
 
-    Extended WPF Toolkit (v4.0.2
+    Extended WPF Toolkit (v4.0.2)
     Author: Xceed Software
     Source: https://github.com/xceedsoftware/wpftoolkit
 
-    Peanut Butter INI (v2.0.2)
+    Peanut Butter INI (v2.0.11)
     Author: Davys McColl
     Source: https://github.com/fluffynuts/PeanutButter
 
-> Code used/adapated:
+> Code used/adapted:
     Function: Copy Folders
     Author: Timm
     Source: http://www.csharp411.com/c-copy-folder-recursively/
@@ -25,6 +25,10 @@
     Function: Password Reveal Functionality
     Author: DaisyTian-MSFT
     Source: https://docs.microsoft.com/en-us/answers/questions/99602/wpf-passwordbox-passwordrevealmode-was-not-found-i.html
+
+    Function: Internet Connectivity Test
+    Author: ChaosPandion, T.Todua
+    Source: https://stackoverflow.com/questions/2031824/what-is-the-best-way-to-check-for-internet-connectivity-using-net
 
 > License: MIT
     Copyright (c) 2019, 2020, 2021 MatthiosArcanus/Hypocrita_2013/Hypocrita20XX
@@ -75,29 +79,18 @@ namespace Conexus
         //Lists to store info related to the mods that will/are downloaded
         List<string> modInfo = new List<string>();
         List<string> appIDs = new List<string>();
-        //Bools to store the value of each combobox
-        bool downloadMods;
-        bool updateMods;
 
-        //Bool to store which method the user has selected
-        bool steam;
-
-        //Added v1.3.0
         //Create a global dateTime for this session
         string dateTime = Regex.Replace(DateTime.Now.ToString(), @"['<''>'':''/''\''|''?''*'' ']", "_", RegexOptions.None);
 
-        //Added v1.2.0
-        //Changed v1.3.0, so that it's not zero-based (better for most to understand)
         //Keeps track of the line count in the log
         int lineCount = 1;
         //Stores all logs in a list, for later storage in a text file
         List<string> log = new List<string>();
 
-        //Added v1.3.0
         //Stores logs temporarily until the message textblock is initiated
         List<string> logTmp = new List<string>();
 
-        //Added v1.3.0
         //Create a root directory in the user's Documents folder for all generated data
         string rootPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Conexus";
         //Create a data directory for all text files (HTML.txt, Mods.txt, ModInfo.txt)
@@ -129,7 +122,6 @@ namespace Conexus
          * Collection=https://steamcommunity.com
          * 
          * [Misc]
-         * Mode=download
          * Method=steam
          * 
          * [Login]
@@ -150,16 +142,22 @@ namespace Conexus
 
         string urlcollection = "";
 
-        string mode = "";
-        string method = "";
-
         //If the user provides this info, we also need to read the Steam username and password
         string username = "";
         string password = "";
 
-        //Added v1.3.0
         //Ensures that certain messages don't happen until the textblock is initialized
         bool loaded = false;
+
+        //Stores number of download attempts made
+        //Maximum allowed: 2
+        int dlAttempts = 0;
+
+        //Indicates if downloads were successful
+        bool success;
+
+        //Keeps a list of mod IDs that could not be downloaded
+        List<string> missingMods = new List<string>();
 
         #endregion
 
@@ -167,8 +165,7 @@ namespace Conexus
         {
             InitializeComponent();
 
-            //Added v1.2.0? (Missing from source, not sure if in final build for v1.20 and v1.2.1)
-            //Very basic, unstead exception handling
+            //Very basic exception handling
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(CurrentDomain_UnhandledException);
 
             ini = new INIFile(configPath + "\\config.ini");
@@ -176,12 +173,11 @@ namespace Conexus
             this.DataContext = this;
         }
 
-        //Added v1.2.0? (Missing from source, not sure if in final build for v1.20 and v1.2.1)
-        //Very basic, untested exception handling
+        //Very basic exception handling
         void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            ShowMessage("WARNING: exception occured! " + (e.ExceptionObject as Exception).Message);
-            ShowMessage("WARNING: Please post your logs on Github! https://github.com/Hypocrita20XX/Conexus/issues");
+            ShowMessage("ERROR: exception occured! " + (e.ExceptionObject as Exception).Message);
+            ShowMessage("ERROR: Please post your logs on Github! https://github.com/Hypocrita20XX/Conexus/issues");
 
             //If an exception does happen, I'm assuming Conexus will crash, so here's this just in case
             //Ensure the Logs folder exists
@@ -192,89 +188,8 @@ namespace Conexus
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
 
-        #region ComboBox Functionality
-
-        //Changed v1.3.0, added logging
-        //Handles mode selection
-        void Mode_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-        {
-            //Get the index of the selected item
-            //0 = download
-            //1 = update
-            int i = cmbMode.SelectedIndex;
-
-            //If the user wishes to download mods
-            if (i == 0)
-            {
-                //Change local variables accordingly
-                downloadMods = true;
-                updateMods = false;
-
-                //Added v1.3.0
-                //Log info relating to what the user wants to do
-                ShowMessage("INPUT: Mode switched to \"Download Mods\"");
-            }
-
-            //If the user wishes to update their existing mods
-            if (i == 1)
-            {
-                //Change local variables accordingly
-                downloadMods = false;
-                updateMods = true;
-
-                //Added v1.3.0
-                //Log info relating to what the user wants to do
-                ShowMessage("INPUT: Mode switched to \"Update Mods\"");
-            }
-
-            if (loaded)
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-        }
-
-        //Changed v1.3.0, added logging
-        //Handles method (ex platform) selection
-        void Platform_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-        {
-            //Get the index of the selected item
-            //0 = steam
-            //1 = list
-            int i = cmbPlatform.SelectedIndex;
-
-            //If the user is using Steam
-            if (i == 0)
-            {
-                //Change local variables accordingly
-                steam = true;
-
-                //Added v1.3.0
-                //Log info relating to what the user wants to do
-                ShowMessage("INPUT: Method switched to \"Steam Collection\"");
-            }
-
-            //If the user is using a list
-            if (i == 1)
-            {
-                //Change local variables accordingly
-                steam = false;
-
-                //Added v1.3.0
-                //Log info relating to what the user wants to do
-                ShowMessage("INPUT: Method switched to \"List\"");
-            }
-
-            if (loaded)
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-        }
-
-        #endregion
-
         #region Button Functionality
 
-        //Changed v1.3.0, added logging
         //Provides functionality to allow the user to select the mods directory
         void ModDir_Click(object sender, RoutedEventArgs e)
         {
@@ -289,22 +204,18 @@ namespace Conexus
             //Set the content of the button to what the user has selected
             mods = folderBrowser.SelectedPath;
 
-            //Added v1.3.0
             //Log info relating to what the user wants to do
             ShowMessage("INPUT: Mods directory set to \"" + mods + "\"");
 
-            //Added v1.2.0
             //Verify that the provided directory is valid, not empty, and contains Darkest.exe
             if (VerifyModDir(folderBrowser.SelectedPath))
             {
                 //Set the settings variable to the one selected
                 mods = folderBrowser.SelectedPath;
 
-                //Added v1.3.0
                 ini["Directories"]["Mods"] = mods;
                 ini.Persist();
 
-                //Added v1.3.0
                 //Log info relating to what the user wants to do
                 ShowMessage("VERIFY: Mods directory is valid and has been saved to config file");
 
@@ -322,12 +233,10 @@ namespace Conexus
             }
 
             if (loaded)
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
 
-        //Changed v1.3.0, added logging
         //Provides functionality to allow the user to select the SteamCMD directory
         void SteamCMDDir_Click(object sender, RoutedEventArgs e)
         {
@@ -342,17 +251,14 @@ namespace Conexus
             //Set the content of the button to what the user has selected
             steamcmd = folderBrowser.SelectedPath;
 
-            //Added v1.3.0
             //Log info relating to what the user wants to do
             ShowMessage("INPUT: SteamCMD directory set to \"" + steamcmd + "\"");
 
-            //Added v1.2.0
             //Verify that the provided directory is valid, not empty, and contains steamcmd.exe
             if (VerifySteamCMDDir(folderBrowser.SelectedPath))
             {
                 string tmp = Path.GetFullPath(folderBrowser.SelectedPath);
 
-                //Changed v1.3.0
                 //Set the settings variable to the one selected
                 steamcmd = folderBrowser.SelectedPath;
 
@@ -360,11 +266,9 @@ namespace Conexus
                 ini["Directories"]["SteamCMD"] = steamcmd;
                 ini.Persist();
 
-                //Added v1.3.0
                 //Log info relating to what the user wants to do
                 ShowMessage("VERIFY: SteamCMD directory is valid and has been saved to config file");
 
-                //Addvd v1.3.0
                 SteamCMDDir.Content = steamcmd;
             }
             //If the given path is invalid, let the user know why
@@ -379,13 +283,10 @@ namespace Conexus
             }
 
             if (loaded)
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
 
-        //Added v1.2.1
-        //Changed v1.3.0, added exception handling
         //Opens a link to Conexus on Nexus Mods
         void URL_Nexus_Click(object sender, RoutedEventArgs e)
         {
@@ -415,14 +316,11 @@ namespace Conexus
             //Save log file no matter what happens
             finally
             {
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
             }
         }
 
-        //Added v1.2.1
-        //Changed v1.3.0, added exception handling
         //Opens a link to Conexus on Github
         void URL_Github_Click(object sender, RoutedEventArgs e)
         {
@@ -452,14 +350,11 @@ namespace Conexus
             //Save log file no matter what happens
             finally
             {
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
             }
         }
 
-        //Added v1.2.1
-        //Changed v1.3.0, added exception handling
         //Opens a link to the wiki on Github
         void URL_Wiki_Click(object sender, RoutedEventArgs e)
         {
@@ -489,14 +384,11 @@ namespace Conexus
             //Save log file no matter what happens
             finally
             {
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
             }
         }
 
-        //Added v1.2.1
-        //Changed v1.3.0, added exception handling
         //Opens a link to the issue tracker on Github
         void URL_Issue_Click(object sender, RoutedEventArgs e)
         {
@@ -526,7 +418,6 @@ namespace Conexus
             //Save log file no matter what happens
             finally
             {
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
             }
@@ -536,7 +427,6 @@ namespace Conexus
 
         #region Checkbox Functionality
 
-        //Added v1.2.0
         //Reveals the username when the checkbox is checked
         void UsernameReveal_Checked(object sender, RoutedEventArgs e)
         {
@@ -548,7 +438,6 @@ namespace Conexus
             SteamUsername_TextBox.Visibility = Visibility.Visible;
         }
 
-        //Added v1.2.0
         //Hides the username when the checkbox is unchecked
         void UsernameReveal_Unchecked(object sender, RoutedEventArgs e)
         {
@@ -560,7 +449,6 @@ namespace Conexus
             SteamUsername.Visibility = Visibility.Visible;
         }
 
-        //Added v1.2.0
         //Reveals the password when the checkbox is unchecked
         void PasswordReveal_Checked(object sender, RoutedEventArgs e)
         {
@@ -572,7 +460,6 @@ namespace Conexus
             SteamPassword_TextBox.Visibility = Visibility.Visible;
         }
 
-        //Added v1.2.0
         //Hides the password when the checkbox is unchecked
         void PasswordReveal_Unchecked(object sender, RoutedEventArgs e)
         {
@@ -588,11 +475,9 @@ namespace Conexus
 
         #region Main Functionality 
 
-        //Changed v1.2.0, to async
         //Main workhorse function
         async void OrganizeMods_Click(object sender, RoutedEventArgs e)
         {
-            //Changed 1.3.0, to reflect Documents\Conexus
             //If this directory is deleted or otherwise not found, it needs to be created, otherwise stuff will break
             if (!Directory.Exists(dataPath))
             {
@@ -601,7 +486,8 @@ namespace Conexus
                 Directory.CreateDirectory(dataPath);
             }
 
-            //Added v1.2.0
+            ShowMessage("INFO: Disabling input fields now");
+
             //Disable input during operation
             URLLink.IsEnabled = false;
             SteamCMDDir.IsEnabled = false;
@@ -611,39 +497,127 @@ namespace Conexus
             UsernameReveal.IsEnabled = false;
             SteamPassword.IsEnabled = false;
             SteamPassword_TextBox.IsEnabled = false;
-            cmbMode.IsEnabled = false;
-            cmbPlatform.IsEnabled = false;
             PasswordReveal.IsEnabled = false;
             OrganizeMods.IsEnabled = false;
 
-            //Added v1.2.1
             //Log info relating to what the user wants to do
             ShowMessage("INFO: Using " + System.Environment.OSVersion);
 
-            //Added v1.3.0
             //Provide further clarification
             if (System.Environment.OSVersion.ToString().Contains("10"))
                 ShowMessage("INFO: Using supported Windows version, 10");
             else
                 ShowMessage("WARN: Potentially using unsupported OS!");
 
-            //Added v1.3.0
             //Save log to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
-            //If the user wants to use a Steam collection, ensure all functionality relates to that
-            if (steam)
-            {
-                //Added v1.2.1
-                //Changed v1.3.0, formatting
-                //Log info relating to what the user wants to do
-                ShowMessage("INFO: Using a Steam collection");
+            //Check internet connection before doing anything
 
-                //Changed v1.2.0, to async
+            //Note: ideally this would  be rolled into the CheckForInternetConnection method
+            //I don't care enough to make that happen right now, so this will work fine, despite being far too verbose
+            //IE turn the method into an int, return the value of valid pings 
+            //(Even though what I'm doing may not technically be pinging. You get the idea)
+            List<bool> netAttempts = new List<bool>();
+
+            netAttempts.Add(CheckForInternetConnection("google.com"));
+            netAttempts.Add(CheckForInternetConnection("facebook.com"));
+            netAttempts.Add(CheckForInternetConnection("youtube.com"));
+            netAttempts.Add(CheckForInternetConnection("twitter.com"));
+            //Specifically chose this one because it's not blocked in China
+            netAttempts.Add(CheckForInternetConnection("weibo.com"));
+
+            int t = 0;
+            int f = 0;
+
+            //See the ratio of true:false
+            for (int i = 0; i < netAttempts.Count; i++)
+            {
+                if (netAttempts[i])
+                    t++;
+
+                if (!netAttempts[i])
+                    f++;
+            }
+
+            //If we have more false than true, they're lacking an internet connection
+            if (f > t)
+            {
+                //Provide additional logging
+                ShowMessage("ERROR: There seems to be a problem with your internet connection!");
+                ShowMessage("ERROR: Conexus will now stop processing your list");
+
+                //Save log to file
+                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+                ShowMessage("INFO: Enabling input fields now");
+
+                //Enable input after operation
+                URLLink.IsEnabled = true;
+                SteamCMDDir.IsEnabled = true;
+                ModDir.IsEnabled = true;
+                SteamUsername.IsEnabled = true;
+                SteamUsername_TextBox.IsEnabled = true;
+                UsernameReveal.IsEnabled = true;
+                SteamPassword.IsEnabled = true;
+                SteamPassword_TextBox.IsEnabled = true;
+                PasswordReveal.IsEnabled = true;
+                OrganizeMods.IsEnabled = true;
+
+                ShowMessage("WARN: Process could not finish successfully!");
+
+                //Save logs to file
+                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+                //Return and make sure everything else stops
+                return;
+            }
+
+            //Check to see if the user has selected directories for SteamCMD and Darkest Dungeon\mods
+            if ((string)SteamCMDDir.Content == "Select SteamCMD Directory")
+                ShowMessage("WARN: You didn't select a SteamCMD directory!");
+
+            if ((string)ModDir.Content == "Select Mods Directory")
+                ShowMessage("WARN: You didn't select a mods directory!");
+
+            //If either equal the default value, get out of here
+            if ((string)SteamCMDDir.Content == "Select SteamCMD Directory")
+            {
+                //Save log to file
+                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+                ShowMessage("INFO: Enabling input fields now");
+
+                //Enable input after operation
+                URLLink.IsEnabled = true;
+                SteamCMDDir.IsEnabled = true;
+                ModDir.IsEnabled = true;
+                SteamUsername.IsEnabled = true;
+                SteamUsername_TextBox.IsEnabled = true;
+                UsernameReveal.IsEnabled = true;
+                SteamPassword.IsEnabled = true;
+                SteamPassword_TextBox.IsEnabled = true;
+                PasswordReveal.IsEnabled = true;
+                OrganizeMods.IsEnabled = true;
+
+                ShowMessage("WARN: Process could not finish successfully!");
+
+                //Save logs to file
+                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+                //Return and make sure everything else stops
+                return;
+            }
+
+            //If the user wants to use a Steam collection, ensure all functionality relates to that
+            if (URLLink.Text.Length > 0)
+            {
+                //Log info relating to what the user wants to do
+                ShowMessage("INFO: URL found, using a Steam collection");
+
                 //Check the provided URL to make sure it's valid
                 if (await VerifyCollectionURLAsync(URLLink.Text, dataPath))
                 {
-                    //Added v1.3.0
                     urlcollection = URLLink.Text;
 
                     //It is assumed that at this point, the user has entered a valid URL to the collection
@@ -652,27 +626,23 @@ namespace Conexus
                         ini["URL"]["Collection"] = urlcollection;
                         ini.Persist();
 
-                        //Added v1.3.0
                         //Log info relating to what the user wants to do
                         ShowMessage("PROC: Collection URL has been saved");
 
-                        //Added v1.3.0
                         //Save log to file
                         WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
                     }
                     //Otherwise we need to quit and provide an error message
                     else
                     {
-                        //Added v1.2.0
-                        //Changed v1.3.0, formatting
                         //Provide feedback
                         ShowMessage("WARN: Invalild URL! Process has stopped");
 
-                        //Added v1.3.0
                         //Save log to file
                         WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
-                        //Added v1.2.0
+                        ShowMessage("INFO: Enabling input fields now");
+
                         //Enable input after operation
                         URLLink.IsEnabled = true;
                         SteamCMDDir.IsEnabled = true;
@@ -682,8 +652,6 @@ namespace Conexus
                         UsernameReveal.IsEnabled = true;
                         SteamPassword.IsEnabled = true;
                         SteamPassword_TextBox.IsEnabled = true;
-                        cmbMode.IsEnabled = true;
-                        cmbPlatform.IsEnabled = true;
                         PasswordReveal.IsEnabled = true;
                         OrganizeMods.IsEnabled = true;
 
@@ -691,73 +659,30 @@ namespace Conexus
                         return;
                     }
 
-                    //If the user wants to download mods, send them through that chain
-                    if (downloadMods)
-                    {
-                        //Added v1.2.1
-                        //Changed v1.3.0, formatting
-                        //Log info relating to what the user wants to do
-                        ShowMessage("INFO: User is downloading mods");
+                    //Provide feedback
+                    ShowMessage("INFO: Mod info will now be obtained from the collection link");
 
-                        //Added v1.2.0
-                        //Changed v1.3.0, formatting
-                        //Provide feedback
-                        ShowMessage("INFO: Mod info will now be obtained from the collection link");
+                    //Create all necessary text files
+                    await DownloadHTMLAsync(urlcollection, dataPath);
 
-                        //Changed v1.2.0, to async
-                        //Create all necessary text files
-                        await DownloadHTMLAsync(urlcollection, dataPath);
+                    //Provide feedback
+                    ShowMessage("INFO: HTML has been downloaded and processed");
 
-                        //Added v1.2.0
-                        //Changed v1.3.0, formatting
-                        //Provide feedback
-                        ShowMessage("INFO: HTML has been downloaded and processed");
+                    //Provide feedback
+                    ShowMessage("INFO: Mods will now be downloaded");
 
-                        //Added v1.2.0
-                        //Changed v1.3.0, formatting
-                        //Provide feedback
-                        ShowMessage("INFO: Mods will now be downloaded");
+                    //Start downloading mods
+                    await DownloadModsFromSteamAsync();
 
-                        //Changed v1.2.0, to async
-                        //Start downloading mods
-                        await DownloadModsFromSteamAsync();
-
-                        //Added v1.3.0
-                        //Save log to file
-                        WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-                    }
-
-                    //Changed v1.2.0, to simplify if statement after implementing mod list addition support
-                    //If the user wants to update mods, send them through that chain so long as they've run through the download chain once
-                    if (updateMods)
-                    {
-                        //Added v1.2.1
-                        //Changed v1.3.0, formatting
-                        //Log info relating to what the user wants to do
-                        ShowMessage("INFO: User is updating mods");
-
-                        //Added v1.2.0
-                        //Changed v1.3.0, formatting
-                        //Provide feedback
-                        ShowMessage("INFO: Mod info will now be updated");
-
-                        //Added v1.2.0
-                        //Force update the mod info text files to account for any additions in the collection
-                        await DownloadHTMLAsync(urlcollection, dataPath);
-
-                        //Added v1.2.0
-                        //Changed v1.3.0, formatting
-                        //Provide feedback
-                        ShowMessage("INFO: Mods will now be updated");
-
-                        //Changed v1.2.0, to async
-                        await UpdateModsFromSteamAsync();
-                    }
+                    //Save log to file
+                    WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+                    
                 }
                 //URL is not valid, don't do anything
                 else
                 {
-                    //Added v1.2.0
+                    ShowMessage("INFO: Enabling input fields now");
+
                     //Enable input after operation
                     URLLink.IsEnabled = true;
                     SteamCMDDir.IsEnabled = true;
@@ -767,15 +692,11 @@ namespace Conexus
                     UsernameReveal.IsEnabled = true;
                     SteamPassword.IsEnabled = true;
                     SteamPassword_TextBox.IsEnabled = true;
-                    cmbMode.IsEnabled = true;
-                    cmbPlatform.IsEnabled = true;
                     PasswordReveal.IsEnabled = true;
                     OrganizeMods.IsEnabled = true;
 
-                    //Added v1.3.0
                     ShowMessage("WARN: Invalid URL!");
 
-                    //Added v1.3.0
                     //Save log to file
                     WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -783,57 +704,25 @@ namespace Conexus
                 }
             }
             //Otherwise, the user wants to use a list of URLs
-            else
+            else if (URLLink.Text.Length == 0)
             {
-                //Added v1.2.1
-                //Changed v1.3.0, formatting
                 //Log info relating to what the user wants to do
-                ShowMessage("INFO: Using a list of links");
+                ShowMessage("INFO: No URL found, using a list of links");
 
-                //If the user wants to download mods, send them through that chain
-                if (downloadMods)
-                {
-                    //Added v1.2.0
-                    //Changed v1.3.0, formatting
-                    //Provide feedback
-                    ShowMessage("INFO: Mod info will now be obtained from the Links file");
+                //Provide feedback
+                ShowMessage("INFO: Mod info will now be obtained from the Links file");
 
-                    //Changed v1.2.0, to async
-                    //Parse IDs from the user-populated list
-                    await ParseFromListAsync(linksPath);
+                //Parse IDs from the user-populated list
+                await ParseFromListAsync(linksPath);
 
-                    //Added v1.2.0
-                    //Changed v1.3.0, formatting
-                    //Provide feedback
-                    ShowMessage("INFO: Mod info has been obtained, mods will now be downloaded");
+                //Provide feedback
+                ShowMessage("INFO: Mod info has been obtained, mods will now be downloaded");
 
-                    //Changed v1.2.0, to async
-                    await DownloadModsFromSteamAsync();
-                }
-
-                //Changed v1.2.0, to simplify if statement after implementing mod list addition support
-                //If the user wants to update mods, send them through that chain
-                if (updateMods)
-                {
-                    //Added v1.2.0
-                    //Changed v1.3.0, formatting
-                    //Provide feedback
-                    ShowMessage("INFO: Mod info will now be updated");
-
-                    //Changed v1.2.0, to async
-                    await ParseFromListAsync(linksPath);
-
-                    //Added v1.2.0
-                    //Changed v1.3.0, formatting
-                    //Provide feedback
-                    ShowMessage("INFO: Mods will now be updated");
-
-                    //Changed v1.2.0, to async
-                    await UpdateModsFromSteamAsync();
-                }
+                await DownloadModsFromSteamAsync();
             }
 
-            //Added v1.2.0
+            ShowMessage("INFO: Enabling input fields now");
+
             //Enable input after operation
             URLLink.IsEnabled = true;
             SteamCMDDir.IsEnabled = true;
@@ -843,36 +732,37 @@ namespace Conexus
             UsernameReveal.IsEnabled = true;
             SteamPassword.IsEnabled = true;
             SteamPassword_TextBox.IsEnabled = true;
-            cmbMode.IsEnabled = true;
-            cmbPlatform.IsEnabled = true;
             PasswordReveal.IsEnabled = true;
             OrganizeMods.IsEnabled = true;
 
-            //Added v1.2.0
-            //Changed v1.3.0, formatting
-            //Provide feedback
-            ShowMessage("INFO: Selected process has finished successfully");
+            if (success)
+                ShowMessage("INFO: Process has finished successfully");
+            else if (!success)
+                ShowMessage("WARN: Process could not finish successfully!");
 
-            //Added v1.3.0
+            //If missing mods were detected, append to the end of the log, for convenience
+            if (missingMods.Count > 0)
+                foreach (string mods in missingMods)
+                    ShowMessage("INFO: Mods that could not be downloaded: " + mods);
+
+            //Reset dlAttempts
+            dlAttempts = 0;
+
             //Save logs to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
 
-        //Changed v1.2.0, to async
         //Download source HTML from a given Steam collection URL
         async Task DownloadHTMLAsync(string url, string fileDir)
         {
-            //Changed v1.3.0, to reflect Documents\Conexus
             //If the Data folder does not exist, create it
             if (!Directory.Exists(fileDir))
             {
-                //Added v1.3.0
                 ShowMessage("INFO: " + fileDir + " does not exist, creating now");
 
                 Directory.CreateDirectory(fileDir);
             }
 
-            //Added v1.2.0
             //Reset lists
             if (modInfo.Count > 0)
                 modInfo.Clear();
@@ -884,27 +774,36 @@ namespace Conexus
             {
                 File.WriteAllText(dataPath + "\\ModInfo.txt", String.Empty);
 
-                //Added v1.3.0
-                ShowMessage("PROC: ModInfo contents have been ovewritten");
+                ShowMessage("PROC: ModInfo contents have been overwritten");
             }
 
-            //Added v1.3.0
             //Save logs to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
             //Create a new WebClient
             WebClient webClient = new WebClient();
-            //Download the desired collection and save the file
-            await Task.Run(() => webClient.DownloadFile(url, fileDir + "\\HTML.txt"));
-            //Added v1.2.0
+
+            try
+            {
+                //Download the desired collection and save the file
+                await Task.Run(() => webClient.DownloadFile(url, fileDir + "\\HTML.txt"));
+            }
+            catch (System.Net.WebException e)
+            {
+                ShowMessage("ERROR: Something went wrong with your network connection! " + e.Message);
+
+                //Indicate failure
+                success = false;
+
+                //Get out of here
+                return;
+            }
+
             //Free up resources, cleanup
             webClient.Dispose();
 
-            //Added v1.2.0
-            //Changed v1.3.0, formatting
             ShowMessage("PROC: Source HTML downloaded successfully");
 
-            //Added v1.3.0
             //Save logs to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -912,7 +811,6 @@ namespace Conexus
             await IterateThroughHTMLAsync(fileDir);
         }
 
-        //Changed v1.2.0, to async
         //Go through the source line by line
         async Task IterateThroughHTMLAsync(string fileDir)
         {
@@ -923,7 +821,6 @@ namespace Conexus
             //Create a file reader and load the previously saved source file
             StreamReader file = new StreamReader(@fileDir + "\\HTML.txt");
 
-            //Added v1.3.0
             ShowMessage("PROC: Parsing HTML source now");
 
             //Iterate through the file one line at a time
@@ -934,32 +831,21 @@ namespace Conexus
                 {
                     //Add this line to the mods list
                     await Task.Run(() => mods.Add(line.Substring(line.IndexOf("<"))));
-
-                    //Added v1.2.0
-                    //Changed v1.3.0, formatting
-                    //Provide feedback
-                    ShowMessage("PROC: Found mod info: " + line.Substring(line.IndexOf("<")));
                 }
             }
 
-            //Added v1.2.0
-            //Changed 1.2.2, formatting
             //Provide feedback
             ShowMessage("PROC: Finished search for mod info in provided collection URL");
 
-            //Added v1.2.0
             //Close file, cleanup
             file.Close();
 
             //Write this information to a file
             WriteToFile(mods.ToArray(), fileDir + "\\Mods.txt");
 
-            //Added v1.2.0
-            //Changed v1.3.0, formatting
             //Provide feedback
-            ShowMessage("INFO: Mod info will now be seperated into its useful parts");
+            ShowMessage("INFO: Mod info will now be separated into its useful parts");
 
-            //Added v1.3.0
             //Save logs to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -967,7 +853,6 @@ namespace Conexus
             await SeparateInfoAsync(fileDir);
         }
 
-        //Changed v1.2.0, to async
         //Parses out all relevant info from the source's lines
         async Task SeparateInfoAsync(string fileDir)
         {
@@ -980,7 +865,6 @@ namespace Conexus
             //Load the previously stored file for further refinement
             StreamReader file = new StreamReader(@fileDir + "\\Mods.txt");
 
-            //Add v1.3.0
             //Provide feedback
             ShowMessage("PROC: Parsing through source for all relevant data");
 
@@ -1015,16 +899,12 @@ namespace Conexus
                 //Create the final name that will be used to identify the folder/mod
                 string final = folderIndex_S + "_" + id + "_" + name;
 
-                //Changed v1.2.0, to async
                 //Add the final name to the modInfo list
                 await Task.Run(() => modInfo.Add(final));
 
-                //Changed v1.2.0, to async
                 //Add the app id to the appIDs list
                 await Task.Run(() => appIDs.Add(id));
 
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
                 //Provide feedback
                 ShowMessage("PROC: Found mod info: " + final);
 
@@ -1032,24 +912,19 @@ namespace Conexus
                 folderIndex++;
             }
 
-            //Added v1.2.0
-            //Changed v1.3.0, formatting
             //Provide feedback
             ShowMessage("INFO: Finished finalizing each mods' information");
 
-            //Added v1.2.0
             //Close file, cleanup
             file.Close();
 
             //Write the modInfo to a text file
             WriteToFile(modInfo.ToArray(), @fileDir + "\\ModInfo.txt");
 
-            //Added v1.3.0
             //Save logs to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
 
-        //Changed v1.2.0, to async
         //Go through the provided text file and find/create relevant mod info
         async Task ParseFromListAsync(string fileDir)
         {
@@ -1062,18 +937,15 @@ namespace Conexus
             {
                 File.WriteAllText(linksPath + "\\ModInfo.txt", String.Empty);
 
-                //Added v1.3.0
-                ShowMessage("PROC: ModInfo contents have been ovewritten");
+                ShowMessage("PROC: ModInfo contents have been overwritten");
             }
 
-            //Added v1.2.0
             //Reset lists
             if (modInfo.Count > 0)
                 modInfo.Clear();
             if (appIDs.Count > 0)
                 appIDs.Clear();
 
-            //Added v1.3.0
             //Save logs to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -1086,15 +958,24 @@ namespace Conexus
             //Load the previously stored file for further refinement
             StreamReader file = new StreamReader(@fileDir + "\\Links.txt");
 
-            //Added v1.3.0
             ShowMessage("PROC: Links.txt will now be parsed for mod info");
+
+            //Temporary lists
+            List<string> modInfo_Names = new List<string>();
+            List<string> modInfo_IDs = new List<string>();
+
+            string name = "";
 
             //Iterate through each line the file
             while ((line = file.ReadLine()) != null)
             {
-                //If the line being looked at is a comment, marked by *, then skip this line
-                //Otherwise, we need to get the ID from this line
-                if (!line.Contains("*"))
+                //If this line contains an asterisk, this is intended to be the mod name
+                if (line.Contains("*"))
+                    name = Regex.Replace(line, @"['<''>'':''/''\''|''?''*']", "", RegexOptions.None);
+
+                //If the line being looked at is a Steam workshop link, we need to get the ID from this line
+                //if (!line.Contains("*"))
+                if (line.Contains("steamcommunity.com"))
                 {
                     //Remove everything up to ?id=, plus 4 to remove ?id= in the link
                     string id = line.Substring(line.IndexOf("?id=") + 4);
@@ -1111,68 +992,282 @@ namespace Conexus
                     if (folderIndex > 100)
                         folderIndex_S = folderIndex.ToString();
 
-                    //Add the final name to the modInfo list
-                    await Task.Run(() => modInfo.Add(folderIndex_S + "_" + id));
+                    //If we found a mod name in a previous line after finding the last link,
+                    //we need to append that to what we add to modInfo
+                    if (name != "")
+                    {
+                        //We need to make sure the given modInfo is no more than 260 characters
+                        //Practically, let's say it can be no more than 120 characters
+                        if ((folderIndex_S + "_" + id + "_" + name).Length > 120)
+                        {
+                            //Provide feedback
+                            ShowMessage("INFO: Mod info exceeds 120 characters! Truncating now");
+
+                            await Task.Run(() => modInfo.Add((folderIndex_S + "_" + id + "_" + name).Substring(0, 119)));
+
+                            //Provide feedback
+                            ShowMessage("PROC: Found mod ID and name in Links file: " + (folderIndex_S + "_" + id + "_" + name).Substring(0, 119));
+                        }
+                        //Otherwise the given mod info is fine
+                        else if ((folderIndex_S + "_" + id + "_" + name).Length <= 120)
+                        {
+                            await Task.Run(() => modInfo.Add(folderIndex_S + "_" + id + "_" + name));
+
+                            //Provide feedback
+                            ShowMessage("PROC: Found mod ID and name in Links file: " + folderIndex_S + "_" + id + "_" + name);
+                        }
+
+                        //Reset name string
+                        name = "";
+                    }
+                    //Otherwise if no mod name was found this link and the last,
+                    //we can just use the old format, numerical order and ID
+                    else if (name == "")
+                    {
+                        await Task.Run(() => modInfo.Add(folderIndex_S + "_" + id));
+
+                        //Provide feedback
+                        ShowMessage("PROC: Found only mod ID in Links file: " + folderIndex_S + "_" + id);
+                    }
 
                     //Add this ID to the appIDs list
                     await Task.Run(() => appIDs.Add(id));
-
-                    //Added v1.2.0
-                    //Changed v1.3.0, formatting
-                    //Provide feedback
-                    ShowMessage("PROC: Found mod info in Links file: " + folderIndex_S + "_" + id);
 
                     //Increment folderIndex
                     folderIndex++;
                 }
             }
 
-            //Added v1.2.0
-            //Changed v1.3.0, formatting
             //Provide feedback
             ShowMessage("INFO: Finished processing mod info in Links file");
 
             //Write the modInfo to a text file
             WriteToFile(modInfo.ToArray(), @fileDir + "\\ModInfo.txt");
 
-            //Added v1.2.0
             //Close file, cleanup
             file.Close();
 
-            //Added v1.3.0
             //Save log to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
 
-        //Changed v1.2.0, to async
         //Handles downloading mods through SteamCMD
         async Task DownloadModsFromSteamAsync()
         {
+            //Only do this if this is the first attempt
+            if (dlAttempts == 0)
+            {
+                //We need to verify that all the needed data text files downloaded successfully
+                //If we're working with a URL, we need to verify HTML.txt, ModInfo.txt, and Mods.txt
+                //If we're working with a list of links, we only need to verify ModInfo.txt
+                //Verification will be simple, just checking that the length of the file is greater than 0
+                //So far that's the only bug I've encountered (as of 1.4.0), and not missing info, which would require
+                //more extensive verification methods, such as parsing each file 
+                //and checking each line against known good values
+                FileInfo html_txt = new FileInfo(dataPath + "\\HTML.txt");
+                FileInfo mods_txt = new FileInfo(dataPath + "\\Mods.txt");
+                FileInfo modinfo_url_txt = new FileInfo(dataPath + "\\ModInfo.txt");
+                FileInfo modinfo_links_txt = new FileInfo(linksPath + "\\ModInfo.txt");
+
+                if (URLLink.Text.Length > 0)
+                {
+                    //If HTML.txt is equal to zero bytes, no data, we need to try once more to get that data
+                    //If this is the case, it's safe to assume that the other files are most likely invalid as well
+                    if (html_txt.Length == 0)
+                    {
+                        ShowMessage("WARN: HTML.txt contains no data, trying once again to obtain collection info!");
+
+                        await DownloadHTMLAsync(URLLink.Text, dataPath);
+
+                        //If it's still zero bytes, there's a problem and we can't proceed
+                        if (html_txt.Length == 0)
+                        {
+                            ShowMessage("WARN: HTML.txt still has no data, no mods will be downloaded! Aborting now");
+
+                            //We can (and have done so elsewhere) check this automatically, 
+                            //but this is such a specific and what I would think rare issue,
+                            //I don't see the point of added overhead
+                            //Just throw out the most likely problem and solution, call it a day
+                            ShowMessage("DEBUG: Please check that your link is valid and that you're connected to the internet");
+
+                            //Indicate failure
+                            success = false;
+
+                            //Get out of here
+                            return;
+                        }
+
+                        //Next file in line, Mods.txt
+                        if (mods_txt.Length == 0)
+                        {
+                            ShowMessage("WARN: Mods.txt contains no data, trying once again to obtain info!");
+
+                            await IterateThroughHTMLAsync(dataPath);
+
+                            //If it's still zero bytes, there's a problem and we can't proceed
+                            if (mods_txt.Length == 0)
+                            {
+                                ShowMessage("WARN: Mods.txt still has no data, no mods will be downloaded! Aborting now");
+                                ShowMessage("DEBUG: Please check that your link is valid and that you're connected to the internet");
+
+                                //Indicate failure
+                                success = false;
+
+                                //Get out of here
+                                return;
+                            }
+                        }
+
+                        //Last file, ModInfo.txt
+                        if (modinfo_url_txt.Length == 0)
+                        {
+                            ShowMessage("WARN: ModInfo.txt contains no data, trying once again to obtain info!");
+
+                            await SeparateInfoAsync(dataPath);
+
+                            //If it's still zero bytes, there's a problem and we can't proceed
+                            if (modinfo_url_txt.Length == 0)
+                            {
+                                ShowMessage("WARN: ModInfo.txt still has no data, no mods will be downloaded! Aborting now");
+                                ShowMessage("DEBUG: Please check that your link is valid and that you're connected to the internet");
+
+                                //Indicate failure
+                                success = false;
+
+                                //Get out of here
+                                return;
+                            }
+                        }
+                    }
+
+                    //Next file in line, Mods.txt
+                    if (mods_txt.Length == 0)
+                    {
+                        ShowMessage("WARN: Mods.txt contains no data, trying once again to obtain info!");
+
+                        await IterateThroughHTMLAsync(dataPath);
+
+                        //If it's still zero bytes, there's a problem and we can't proceed
+                        if (mods_txt.Length == 0)
+                        {
+                            ShowMessage("WARN: Mods.txt still has no data, no mods will be downloaded! Aborting now");
+                            ShowMessage("DEBUG: Please check that your link is valid and that you're connected to the internet");
+
+                            //Indicate failure
+                            success = false;
+
+                            //Get out of here
+                            return;
+                        }
+                    }
+
+                    //Last file, ModInfo.txt
+                    if (modinfo_url_txt.Length == 0)
+                    {
+                        ShowMessage("WARN: ModInfo.txt contains no data, trying once again to obtain info!");
+
+                        await SeparateInfoAsync(dataPath);
+
+                        //If it's still zero bytes, there's a problem and we can't proceed
+                        if (modinfo_url_txt.Length == 0)
+                        {
+                            ShowMessage("WARN: ModInfo.txt still has no data, no mods will be downloaded! Aborting now");
+                            ShowMessage("DEBUG: Please check that your link is valid and that you're connected to the internet");
+
+                            //Indicate failure
+                            success = false;
+
+                            //Get out of here
+                            return;
+                        }
+                    }
+
+                    //If, after all of that, we've got valid files, we can continue as normal
+                    //Provide a message because... Why not
+                    ShowMessage("Info: All text files have been verified as valid, proceeding to download!");
+                }
+                else if (URLLink.Text.Length == 0)
+                {
+                    //ModInfo.txt for a list of links
+                    if (modinfo_links_txt.Length == 0)
+                    {
+                        await SeparateInfoAsync(linksPath);
+
+                        //If it's still zero bytes, there's a problem and we can't proceed
+                        if (modinfo_links_txt.Length == 0)
+                        {
+                            ShowMessage("WARN: ModInfo.txt still has no data, no mods will be downloaded! Aborting now");
+                            ShowMessage("DEBUG: Please check that your link is valid and that you're connected to the internet");
+
+                            //Indicate failure
+                            success = false;
+
+                            //Get out of here
+                            return;
+                        }
+                    }
+
+                    //If, after all of that, we've got valid files, we can continue as normal
+                    //Provide a message because... Why not
+                    ShowMessage("Info: All text files have been verified as valid, proceeding to download!");
+                }
+
+
+                //Check to see if the darkestdungeon\mods folder is empty
+                //If not, it needs cleared out to make room for the updated mods
+                if (Directory.GetDirectories(mods).Length > 0)
+                {
+                    //Provide feedback
+                    ShowMessage("INFO: Mods detected in " + mods + ", deleting old versions now");
+
+                    await DeleteDirectory(mods);
+                }
+
+                /*
+                //Commented out because I'm unconvinced this is the best approach
+                //For instance if the user downloads 200 mods, but 2 of those have since been taken down
+                //This will delete 198 perfectly usable mods
+                //Which is awful because those 198 could have taken 30 minutes or longer to download
+                //So let's not, as far as I know, having them in this folder isn't an issue.
+                //Really becomes an issue with the mods folder, due to the possibility of adding/removing mods
+                //And how specific the naming is, the order would get messed up otherwise
+                //Leaving this code here just in case, and the comment too as I feel this is useful info
+
+                //Check to see if the 262060 folder is empty
+                //If not, it needs cleared out, remnants of a failed download process
+                if (Directory.Exists(steamcmd + "\\steamapps\\workshop\\content") && Directory.Exists(steamcmd + "\\steamapps\\workshop\\content\\262060"))
+                    if (Directory.GetDirectories(steamcmd + "\\steamapps\\workshop\\content\\262060").Length > 0)
+                    {
+                        //Provide feedback
+                        ShowMessage("INFO: Mods detected in " + steamcmd + "\\steamapps\\workshop\\content\\262060" + ", deleting now");
+
+                        await DeleteDirectory(steamcmd + "\\steamapps\\workshop\\content\\262060");
+                    }
+                */
+            }
+
             //Stores the proper commands that will be passed to SteamCMD
             string cmdList = "";
 
-            //Added v1.3.0
-            //Provide feedback
-            ShowMessage("PROC: Commands will now be obtained");
+
+            //Only do this if this is the first attempt
+            if (dlAttempts == 0) 
+                ShowMessage("PROC: Commands will now be obtained");
 
             //Get a list of commands for each mod stored in a single string
             for (int i = 0; i < appIDs.Count; i++)
             {
-                //Changed v1.2.0, to async
                 await Task.Run(() => cmdList += "+\"workshop_download_item 262060 " + appIDs[i] + "\" ");
 
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
-                //Provide feedback
-                ShowMessage("PROC: Adding command to list: " + " +\"workshop_download_item 262060 " + appIDs[i] + "\" ");
+                //Only do this if this is the first attempt
+                if (dlAttempts == 0)
+                    ShowMessage("PROC: Adding command to list: " + " +\"workshop_download_item 262060 " + appIDs[i] + "\" ");
             }
+            
 
-            //Added v1.2.0
-            //Changed v1.3.0, formatting
             //Provide feedback
             ShowMessage("INFO: SteamCMD will take over now");
 
-            //Added v1.3.0
             //Save logs to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -1186,245 +1281,123 @@ namespace Conexus
                 process.StartInfo = processInfo;
                 //Start the process with the provided commands
                 await Task.Run(() => process.Start());
-                //Changed v1.2.0, to async
                 //Wait until SteamCMD finishes
                 await Task.Run(() => process.WaitForExit());
-                //Move on to copying and renaming the mods
-                await RenameAndMoveModsAsync("DOWNLOAD");
             }
 
-            //Added v1.3.0
+            //Increment dlAttempts
+            dlAttempts++;
+
             //Provide feedback
-            ShowMessage("INFO: SteamCMD has finished downloading mods");
+            ShowMessage("INFO: SteamCMD has closed");
 
-            //Added v1.3.0
-            //Save log to file
-            WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-        }
+            bool result = VerifySteamCMDDownload(steamcmd);
 
-        //Changed v1.2.0, to async
-        //Handles updating mods through SteamCMD
-        async Task UpdateModsFromSteamAsync()
-        {
-            //Move all mods from the mods directory to the SteamCMD directory for updating.
-            await RenameAndMoveModsAsync("UPDATE");
-
-            //Stores the proper commands that will be passed to SteamCMD
-            string cmdList = "";
-
-            //Added v1.3.0
-            //Provide feedback
-            ShowMessage("PROC: Commands will now be obtained");
-
-            //Get a list of commamds for each mod stored in a single string
-            for (int i = 0; i < appIDs.Count; i++)
+            //Verify that mods downloaded
+            if (result)
             {
-                //Changed v1.2.0, to async
-                await Task.Run(() => cmdList += "+\"workshop_download_item 262060 " + appIDs[i] + "\" ");
+                //Reset dlAttempts
+                dlAttempts = 0;
 
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
                 //Provide feedback
-                ShowMessage("PROC: Adding command to list: " + " +\"workshop_download_item 262060 " + appIDs[i] + "\" ");
-            }
+                ShowMessage("INFO: Mods have been successfully downloaded");
 
-            //Added v1.2.0
-            //Changed v1.3.0, formatting
-            //Provide feedback
-            ShowMessage("INFO: SteamCMD will take over now");
+                //Indicate success
+                success = true;
 
-            //Added v1.3.0
-            //Save log to file
-            WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-
-            //Create a process that will contain all relevant SteamCMD commands for all mods
-            ProcessStartInfo processInfo = new ProcessStartInfo("\"" + steamcmd + "\\steamcmd.exe" + "\"", " +login " + SteamUsername.Password + " " + SteamPassword.Password + " " + cmdList + "+quit");
-
-            //Create a wrapper that will run all commands, wait for the process to finish, and then proceed to copying and renaming folders/files
-            using (Process process = new Process())
-            {
-                //Set the commands for this process
-                process.StartInfo = processInfo;
-                //Changed v1.2.0, to async
-                //Start the commandline process
-                await Task.Run(() => process.Start());
-                //Changed v1.2.0, to async
-                //Wait until SteamCMD finishes
-                await Task.Run(() => process.WaitForExit());
                 //Move on to copying and renaming the mods
-                await RenameAndMoveModsAsync("DOWNLOAD");
+                await RenameAndMoveModsAsync();
+
+                //Save log to file
+                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
             }
+            else if (!result && dlAttempts < 2)
+            {
+                //Increment dlAttempts
+                dlAttempts++;
 
-            //Added v1.3.0
-            //Provide feedback
-            ShowMessage("INFO: SteamCMD has finished downloading mods");
+                //Provide feedback
+                ShowMessage("Warn: Mods were not downloaded successfully! Trying again");
+                ShowMessage("Info: Attempt " + dlAttempts.ToString() + " of 2");
 
-            //Added v1.3.0
-            //Save log to file
-            WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+                await DownloadModsFromSteamAsync();
+            }
+            else if (!result && dlAttempts >= 2)
+            {
+                //Provide feedback
+                ShowMessage("Warn: Mods could not be downloaded after two attempts, process will now stop");
+
+                //Indicate failure
+                success = false;
+            }
         }
 
-        //Changed v1.2.0, to async
         //Creates organized folders in the mods directory, then copies files from the SteaCMD directory to those folders
         //Requires that an operation be specified (DOWNLOAD or UPDATE)
-        async Task RenameAndMoveModsAsync(string DownloadOrUpdate)
+        async Task RenameAndMoveModsAsync()
         {
             //Create source/destination path list variables
             string[] source = new string[appIDs.Count];
             string[] destination = new string[modInfo.Count];
 
-            //If the user has downloaded/updated mods, copy all files/folders from the SteamCMD directory to the mod directory
-            if (DownloadOrUpdate == "DOWNLOAD")
+            //Provide feedback
+            //ShowMessage("PROC: Acquiring paths to copy from");
+
+            //Save log to file
+            WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+            //Get the proper path to copy from
+            for (int i = 0; i < appIDs.Count; i++)
+                await Task.Run(() => source[i] = Path.Combine(steamcmd + "\\steamapps\\workshop\\content\\262060\\", appIDs[i]));
+
+            //Provide feedback
+            //ShowMessage("PROC: Acquiring paths to copy to");
+
+            //Save log to file
+            WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+            //Get the proper path that will be copied to
+            for (int i = 0; i < modInfo.Count; i++)
+                await Task.Run(() => destination[i] = Path.Combine(mods, modInfo[i]));
+
+            //Provide feedback
+            ShowMessage("PROC: Copying files, please wait");
+
+            //Save log to file
+            WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+            //Copy all folders/files from the SteamCMD directory to the mods directory
+            for (int i = 0; i < destination.Length; i++)
             {
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
+                await CopyFoldersAsync(source[i], destination[i]);
+
                 //Provide feedback
-                ShowMessage("PROC: Acquiring paths to copy from");
-
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-
-                //Get the proper path to copy from
-                for (int i = 0; i < appIDs.Count; i++)
-                {
-                    //Changed v1.2.0, to async
-                    await Task.Run(() => source[i] = Path.Combine(steamcmd + "\\steamapps\\workshop\\content\\262060\\", appIDs[i]));
-                }
-
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
-                //Provide feedback
-                ShowMessage("PROC: Acquiring paths to copy to");
-
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-
-                //Get the proper path that will be copied to
-                for (int i = 0; i < modInfo.Count; i++)
-                {
-                    //Changed v1.2.0, to async
-                    await Task.Run(() => destination[i] = Path.Combine(mods, modInfo[i]));
-                }
-
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
-                //Provide feedback
-                ShowMessage("PROC: Copying files, please wait");
-
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-
-                //Copy all folders/files from the SteamCMD directory to the mods directory
-                for (int i = 0; i < destination.Length; i++)
-                {
-                    //Changed v1.2.0, to async
-                    await CopyFoldersAsync(source[i], destination[i]);
-
-                    //Added v1.2.0
-                    //Changed v1.3.0, formatting
-                    //Provide feedback
-                    ShowMessage("PROC: Files copied from " + source[i] + " to " + destination[i]);
-                }
-
-                //Added v1.2.0
-                //Changed v1.3.0, formatting/phrasing
-                //Provide feedback
-                ShowMessage("INFO: Files copied, original copy will now be deleted");
-
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-
-                //****!!!****
-                //TESTING
-                await DeleteDirectory(@steamcmd + "\\steamapps\\workshop\\content\\262060\\");
+                ShowMessage("PROC: Files copied from " + source[i] + " to " + destination[i]);
             }
 
-            //If the userwants to update mods, copy all files/folders from the mod directory to the SteamCMD directory
-            if (DownloadOrUpdate == "UPDATE")
-            {
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
-                //Provide feedback
-                ShowMessage("PROC: Acquiring paths to copy from");
+            /* 
+            
+            // After some thought, I don't think removing what's in the 262060 folder is the best idea
+            // It shouldn't cause any issue, and saves the user time in subsequent uses
+             
+            //Provide feedback
+            ShowMessage("INFO: Files copied, original copy will now be deleted");
 
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+            //Save log to file
+            WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
-                //Get the proper path to copy from
-                for (int i = 0; i < appIDs.Count; i++)
-                {
-                    //Changed v1.2.0, to async
-                    await Task.Run(() => source[i] = Path.Combine(mods + "\\", modInfo[i]));
-                }
+            await DeleteDirectory(@steamcmd + "\\steamapps\\workshop\\content\\262060\\");
 
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
-                //Provide feedback
-                ShowMessage("PROC: Acquiring paths to copy to");
-
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-
-                //Get the proper path that will be copied to
-                for (int i = 0; i < modInfo.Count; i++)
-                {
-                    //Changed v1.2.0, to async
-                    await Task.Run(() => destination[i] = Path.Combine(steamcmd + "\\steamapps\\workshop\\content\\262060\\", appIDs[i]));
-                }
-
-                //Added v1.2.0
-                //Changed v1.3.0, formatting
-                //Provide feedback
-                ShowMessage("PROC: Copying files, please wait");
-
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-
-                //Copy all folders/files from the SteamCMD directory to the mods directory
-                for (int i = 0; i < destination.Length; i++)
-                {
-                    //Changed v1.2.0, to async
-                    await CopyFoldersAsync(source[i], destination[i]);
-
-                    //Added v1.2.0
-                    //Changed v1.3.0, formatting
-                    //Provide feedback
-                    ShowMessage("PROC: Files copied from " + source[i] + " to " + destination[i]);
-                }
-
-                //Added v1.2.0
-                //Changed v1.3.0, formatting/phrasing
-                //Provide feedback
-                ShowMessage("PROC: Files have been copied, deleting originals");
-
-                //Added v1.3.0
-                //Save log to file
-                WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
-
-
-                //Added v1.3.1
-                //TESTING
-                await DeleteDirectory(@mods);
-            }
-
-            //Added v1.2.0
-            //Changed v1.3.0, formatting
             //Provide feedback
             ShowMessage("INFO: Mods have now been moved and renamed, originals have been deleted");
+            */
 
-            //Added v1.3.0
+            ShowMessage("INFO: Mods have now been moved and renamed");
+
             //Save log to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
 
-        //Added v1.3.1
         //Fix for index out of bounds when stuff gets deleted
         //Handles any deletions of directories and sub-directories
         async Task DeleteDirectory(string directory)
@@ -1454,7 +1427,6 @@ namespace Conexus
             }
         }
 
-        //Changed v1.2.0, to async
         //A base function that will copy/rename any given folder(s)
         //Can be used recursively for multiple directories
         async Task CopyFoldersAsync(string source, string destination)
@@ -1463,18 +1435,16 @@ namespace Conexus
             if (!Directory.Exists(destination))
                 Directory.CreateDirectory(destination);
 
-            //Added v1.2.0
-            //Ok this is a really lazy way to do this, but it works, so I don't care
-            //To allow for easy additions to a collection, we make sure the mods have a folder
-            //Prior to this, the HTML functions are processed, so to avoid crashes,
-            //we just create an empty dummy folder
+            //Check to see if a mod was downloaded
             if (!Directory.Exists(source))
             {
-                //Added v1.3.0
-                //Provide feedback
-                ShowMessage("PROC: " + source + " does not exist, creating now (new mod detected)");
+                ShowMessage("WARN: " + source + " does not exist! Mod info: " + destination);
 
-                Directory.CreateDirectory(source);
+                //Add destination to the missingMods list for later adding to the end of the log
+                missingMods.Add(destination.Substring(destination.IndexOf("_") + 1));
+
+                //We need to get out of here before stuff breaks
+                return;
             }
 
             //Create an array of strings containing all files in the given source directory
@@ -1487,8 +1457,6 @@ namespace Conexus
                 string name = Path.GetFileName(file);
                 //Get the destination for this file
                 string dest = Path.Combine(destination, name);
-
-                //Changed v1.2.0, to async
                 //Copy this file to the destination
                 await Task.Run(() => File.Copy(file, dest, true));
             }
@@ -1503,13 +1471,10 @@ namespace Conexus
                 string name = Path.GetFileName(folder);
                 //Get the destination for this folder
                 string dest = Path.Combine(destination, name);
-
-                //Changed v1.2.0, to async
                 //Recursively copy any files in this directory, any sub-directories, and all files therein
                 await CopyFoldersAsync(folder, dest);
             }
 
-            //Added v1.3.0
             //Save log to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
@@ -1517,20 +1482,16 @@ namespace Conexus
         //Utility function to write text to a file
         void WriteToFile(string[] text, string fileDir)
         {
-            //Added v1.3.0
             if (!File.Exists(fileDir))
                 File.Create(fileDir).Dispose();
-            else
+
+            if (File.Exists(fileDir))
                 File.WriteAllLines(@fileDir, text);
         }
 
-        //Added v1.2.0
-        //Changed v1.3.0, overall formatting, functionality to handle unitialized textblock so I can use this everywhere 
-        //without interspersing with random temp variables
         //Utility function to handle messages
         void ShowMessage(string msg)
         {
-            //Added v1.3.0
             //Because I insist on proper formatting, here's a series of if statements
             //whose only job is to add leading zeroes
             //Yes, we're going up to a million lines
@@ -1561,19 +1522,17 @@ namespace Conexus
             else if (lineCount >= 1000000)
             {
                 //Seriously, how?
-                ShowMessage("Impressive, and I thought I liked mods. Nice!)");
+                ShowMessage("Impressive, and I thought I liked mods. Nice!");
                 lcStr = lineCount.ToString();
             }
             //If it's somehow something else, no leading zeroes
             else
                 lcStr = lineCount.ToString();
 
-            //Added v1.3.0
             //Check to see if the Messages extblock is loaded
             //If so, proceed as normal
             if (Messages != null && Messages.IsLoaded)
             {
-                //Added v1.3.0
                 //If logTmp is not empty, then messages were added before the textblock was initiated
                 //and those messages should be added now to the textblock
                 if (logTmp.Count > 0)
@@ -1617,6 +1576,9 @@ namespace Conexus
 
                     //Increment lineCount
                     lineCount++;
+
+                    //Scroll to the end of the scroll viewer
+                    MessageScrollViewer.ScrollToEnd();
                 }
             }
             //Otherwise, the message needs stored until it is loaded and can accept messages
@@ -1635,8 +1597,6 @@ namespace Conexus
 
         #region Verification Functionality
 
-        //Added v1.2.0
-        //Changed v1.3.0, added logging and log saving
         //Goes through several verification steps to ensure a proper Steam collection URL has been entered
         async Task<bool> VerifyCollectionURLAsync(string url, string fileDir)
         {
@@ -1677,11 +1637,10 @@ namespace Conexus
             //Attempt to download the HTML from the provided URL
             try
             {
-                //Added v1.3.0
                 ShowMessage("INFO: Attempting to download HTML from given collection URL");
                 //Download the desired collection and save the file
                 await Task.Run(() => webClient.DownloadFile(url, fileDir + "\\HTML.txt"));
-                //Added v1.3.0
+
                 ShowMessage("INFO: Successfully downloaded HTML");
             }
             //Not a valid URL
@@ -1689,11 +1648,8 @@ namespace Conexus
             {
                 //Clear URLLink Text
                 URLLink.Text = string.Empty;
-                //Provide a message to the user
-                //URLLink.Watermark = "Not a valid URL: " + url;
                 //Flag this URL as invalid
                 validURL = false;
-                //Changed v1.3.0, better formatting
                 //Provide additional logging
                 ShowMessage("ERROR: Provided URL is not valid!");
             }
@@ -1702,11 +1658,8 @@ namespace Conexus
             {
                 //Clear URLLink Text
                 URLLink.Text = string.Empty;
-                //Provide a message to the user
-                //URLLink.Watermark = "Not a valid URL: " + url;
                 //Flag this URL as invalid
                 validURL = false;
-                //Changed v1.3.0, better formatting
                 //Provide additional logging
                 ShowMessage("ERROR: Provided URL is not valid or does not exist!");
             }
@@ -1715,11 +1668,8 @@ namespace Conexus
             {
                 //Clear URLLink Text
                 URLLink.Text = string.Empty;
-                //Provide a message to the user
-                URLLink.Watermark = "Not a valid URL: " + url;
                 //Flag this URL as invalid
                 validURL = false;
-                //Changed v1.3.0, better formatting
                 //Provide additional logging
                 ShowMessage("ERROR: Provided URL is not valid!");
             }
@@ -1728,17 +1678,13 @@ namespace Conexus
             {
                 //Clear URLLink Text
                 URLLink.Text = string.Empty;
-                //Provide a message to the user
-                //URLLink.Watermark = "URL is too long (more than 260 characters)";
                 //Flag this URL as invalid
                 validURL = false;
-                //Changed v1.3.0, better formatting
                 //Provide additional logging
                 ShowMessage("ERROR: Provided URL is too long! (Greater than 260 characters)");
             }
             finally
             {
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
             }
@@ -1746,13 +1692,24 @@ namespace Conexus
             //If the link is valid, leads to an actual site, we need to check for a valid Steam site
             if (validURL)
             {
-                //Added v1.3.0
                 ShowMessage("VERIFY: Given link is valid");
 
-                //Download the desired collection and save the file
-                await Task.Run(() => webClient.DownloadFile(url, fileDir + "\\HTML.txt"));
+                try
+                {
+                    //Download the desired collection and save the file
+                    await Task.Run(() => webClient.DownloadFile(url, fileDir + "\\HTML.txt"));
+                }
+                catch (System.Net.WebException e)
+                {
+                    ShowMessage("ERROR: Something went wrong with your network connection!" + e.Message);
 
-                //Added v1.3.0
+                    //Indicate failure
+                    success = false;
+
+                    //Get out of here
+                    return false;
+                }
+
                 ShowMessage("INFO: HTML source has been downloaded");
 
                 /*
@@ -1789,7 +1746,6 @@ namespace Conexus
                 //Stores the result of the verification check for a valid Steam collection link
                 bool isValidCollection = false;
 
-                //Changed v1.3.0, formatting
                 //Provide feeback
                 ShowMessage("PROC: Searching for valid Steam collection links");
 
@@ -1809,11 +1765,9 @@ namespace Conexus
                     lineCount++;
                 }
 
-                //Changed v1.3.0, formatting
                 //Provide feeback
                 ShowMessage("PROC: Search complete");
 
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -1822,18 +1776,13 @@ namespace Conexus
                 {
                     //Clear URLLink Text
                     URLLink.Text = string.Empty;
-                    //Provide a message to the user
-                    URLLink.Watermark = "Not a valid URL: " + url;
-
                     //Cleanup
                     webClient.Dispose();
                     file.Close();
 
-                    //Changed v1.3.0, formatting
                     //Provide feedback
                     ShowMessage("WARN: No Steam collection link found, please check the link provided!");
 
-                    //Added v1.3.0
                     //Save log to file
                     WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -1845,11 +1794,9 @@ namespace Conexus
                     webClient.Dispose();
                     file.Close();
 
-                    //Changed v1.3.0, formatting
                     //Provide feedback
                     ShowMessage("VERIFY: A valid Steam collection link has been found");
 
-                    //Added v1.3.0
                     //Save log to file
                     WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -1861,17 +1808,12 @@ namespace Conexus
             {
                 //Clear URLLink Text
                 URLLink.Text = string.Empty;
-                //Provide a message to the user
-                URLLink.Watermark = "Not a valid URL: " + url;
-
-                //Changed v1.3.0, formatting
                 //Provide feedback
                 ShowMessage("WARN: No valid Steam collection link found, please check the link provided!");
 
                 //Cleanup
                 webClient.Dispose();
 
-                //Added v1.3.0
                 //Save log to file
                 WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
@@ -1879,7 +1821,6 @@ namespace Conexus
             }
         }
 
-        //Added v1.2.0
         //Goes through several verification steps to ensure that the given SteamCMD directory is valid, contains steamcmd.exe
         bool VerifySteamCMDDir(string fileDir)
         {
@@ -1898,7 +1839,6 @@ namespace Conexus
                 return false;
         }
 
-        //Added v1.2.0
         //Goes through several verification steps to ensure that the given mods directory is valid, contains Darkest.exe
         bool VerifyModDir(string fileDir)
         {
@@ -1929,15 +1869,307 @@ namespace Conexus
             }
         }
 
+        //After SteamCMD has closed, this will check to see if SteamCMD successfully downloaded mods
+        bool VerifySteamCMDDownload(string steamCmdDir)
+        {
+            /*
+             * 
+             * This verification is mostly straightforward, but comes in two parts, one nested in the other,
+             * and becomes more complex as the implications need handled approprietly in a user-oriented manner.
+             * 
+             * The first check has to verify that steamcmd\steamapps\workshop\content exists
+             * The next check needs to go to steamcmd\steamapps\workshop\content\262060 and make sure 
+             * that there are indeed folders matching the information found in the modInfo list
+             * This needs to be an exact match to what's in that file, otherwise we need to run checks
+             * to see what may have gone wrong and let the user know the result of each check
+             * 
+             * There are several known reasons mods fail to download:
+             * 1.) The game is not registered to the user's Steam account (they have it on Epic/GOG, or a pirated version - all unsupported)
+             * 2.) Invalid Steam credentials (the user typed in something accidentally)
+             * 3.) Invalid mod info (either their links file is invalid/missing or URL is invalid - previous check should handle the URL)
+             * 
+             * There are also a number of suspected reasons mods could fail to download:
+             * 1.) No internet connection
+             * 2.) Incorrect or corrupt SteamCMD installation (possibly missing SteamGuard code/account not linked to SteamCMD)
+             * 3.) Unsupported OS (only Windows 10 is tested, if tried on Linux, Mac, Android, etc. I'm almost certain Conexus will break)
+             * 
+             * 
+             * Concerning known reasons and how to check them:
+             * 1 is unrecoverable, there is no known workaround for Epic/GOG, and I won't support a pirated version
+             * 2 is easy enough in theory, just let the user know there was a problem logging in
+             * 3 should also be straightforward, let them know that no valid mod information was found
+             * and point them in a few directions as to how to fix it, related to their chosen method (collection/list of links)
+             * 
+             * Concerning suspected reasons:
+             * 1 should be simple enough, do a basic WebClient read and see if you get a true result
+             * 2 is also simple, let the user know there's an issue (so long as you can detect it) and have them do a manual clean reinstall of SteamCMD
+             * the trick is detecting the problem, and it will probably be simplest to just do a blanket, blind check and point them
+             * in that direction
+             * 3 is already implented elsewhere and we can reuse that code here, just let the user know that their OS is not supported and that I can't help them
+             * 
+             */
+
+            ShowMessage("INFO: Downloads will now be verified");
+
+            //Will store local variables that will then dictate further verification checks
+            //until final returns are needed
+            bool e = false;
+
+            if (Directory.Exists(steamCmdDir + "\\steamapps\\workshop\\content"))
+            {
+                ShowMessage("VERIFY: " + steamCmdDir + "\\steamapps\\workshop\\content was created successfully");
+
+                //Check to see if \\262060 exists
+                if (Directory.Exists(steamCmdDir + "\\steamapps\\workshop\\content\\262060"))
+                {
+                    ShowMessage("VERIFY: " + steamCmdDir + "\\steamapps\\workshop\\content\\262060 was created successfully");
+
+                    //Get an array of all directories in \\262060
+                    string[] directories = Directory.GetDirectories(steamCmdDir + "\\steamapps\\workshop\\content\\262060");
+
+                    //Will store how many mods have been correctly downloaded
+                    int match = 0;
+
+                    ShowMessage("INFO: Downloaded mods will now be verified");
+
+                    //So, we run through both data sets, what has been downloaded, and what is in the appID list
+                    //We compare to make sure we get a 100% identical match in the end
+                    for (int x = 0; x < directories.Length; x++)
+                    {
+                        ShowMessage("PROC: Checking " + directories[x] + "...");
+
+                        for (int y = 0; y < appIDs.Count; y++)
+                        {
+                            if (directories[x].Contains(appIDs[y]))
+                            {
+                                ShowMessage("PROC: Match found! " + directories[x] + " for ID " + appIDs[y]);
+
+                                match++;
+                            }
+                        }
+                    }
+
+                    //To make it easier to work with, convert our ints to float 
+                    //and store that division in its own float
+                    float ratio = (float)match / (float)appIDs.Count;
+
+                    //Now compare what is stored in match with what is expected
+                    if (match == appIDs.Count)
+                    {
+                        ShowMessage("VERIFY: Download successful! " + match.ToString() + " mod(s) out of a total " + appIDs.Count.ToString() + " found");
+
+                        //If match is the same as the count of IDs in the list, the all mods have downloaded
+                        e = true;
+                    }
+                    //Otherwise if the ratio is above or equal to a certain percentage, deem this a success 
+                    //(to account for hidden mods that SteamCMD can't download)
+                    //I'm assuming an acceptable ratio is 3/4 of a modlist
+                    else if (ratio >= 0.75)
+                    {
+                        ShowMessage("VERIFY: Download was partially successful! Some mods are missing");
+                        ShowMessage("INFO: " + match.ToString() + " mod(s) out of a total " + appIDs.Count.ToString() + " found");
+
+                        //If match is the same as the count of IDs in the list, the all mods have downloaded
+                        e = true;
+                    }
+                    //If the match ratio is less than 75%, then we can consider this a download failure
+                    else if (ratio < 0.75)
+                    {
+                        ShowMessage("WARN: Download was not successful! " + match.ToString() + " mod(s) out of a total " + appIDs.Count.ToString() + " found");
+
+                        //Otherwise something has gone wrong
+                        e = false;
+                    }
+                }
+                else
+                {
+                    ShowMessage("WARN: " + steamCmdDir + "\\steamapps\\workshop\\content\\262060 is missing!");
+
+                    e = false;
+                }
+            }
+            else
+            {
+                ShowMessage("WARN: " + steamCmdDir + "\\steamapps\\workshop\\content is missing!");
+
+                e = false;
+            }
+
+            //Second, for any "INVALID" occurences
+            //This, again happens if:
+            //1.) The content folder is missing (which also means 2 and 3 are true)
+            //2.) The 262060 folder is missing (which also means 1 is false and 3 is true)
+            //3.) Any or all of the mod folders are missing (which means 1 and 2 are false)
+            if (!e && dlAttempts >= 2)
+            {
+                ShowMessage("INFO: Debug info will now be generated");
+
+                //First, let's find specifics, are content\262060 folders missing?
+                if (!Directory.Exists(steamCmdDir + "\\steamapps\\workshop\\content") || !Directory.Exists(steamCmdDir + "\\steamapps\\workshop\\content\\262060"))
+                {
+                    //Let's provide debug info related to that
+                    ShowMessage("DEBUG: 0 - Content and\\or 262060 folder(s) are missing!");
+                    ShowMessage("DEBUG: 0 - This happens because SteamCMD could not download mods");
+
+                    //Before we continue, we need to check to make sure the user is online
+                    //Please note that, as far as I can tell, there's no reliable way to do this
+                    //So we'll do a shotgun approach and let the user know that they may be offline
+                    //Or in a country where that website is unavailable
+
+                    //Note: ideally this would  be rolled into the CheckForInternetConnection method
+                    //I don't care enough to make that happen right now, so this will work fine, despite being far too verbose
+                    //IE turn the method into an int, return the value of valid pings 
+                    //(Even though what I'm doing may not technically be pinging. You get the idea)
+                    List<bool> netAttempts = new List<bool>();
+
+                    ShowMessage("DEBUG: 1 - Let's check your internet connection");
+
+                    netAttempts.Add(CheckForInternetConnection("google.com"));
+                    netAttempts.Add(CheckForInternetConnection("facebook.com"));
+                    netAttempts.Add(CheckForInternetConnection("youtube.com"));
+                    netAttempts.Add(CheckForInternetConnection("twitter.com"));
+                    //Specifically chose this one because it's not blocked in China
+                    netAttempts.Add(CheckForInternetConnection("weibo.com"));
+
+                    int t = 0;
+                    int f = 0;
+
+                    //See the ratio of true:false
+                    for (int i = 0; i < netAttempts.Count; i++)
+                    {
+                        if (netAttempts[i])
+                            t++;
+
+                        if (!netAttempts[i])
+                            f++;
+                    }
+
+                    //If we have more true than false, I think it's safe to say their internet connection is fine
+                    if (t > f)
+                        ShowMessage("DEBUG: 2 - It looks like your internet connnection is fine!");
+                    //Otherwise there could be an issue with their connection
+                    else if (f > t)
+                    {
+                        ShowMessage("DEBUG: 2 - Unforuntately there seems to be a problem with your internet connection!");
+                        ShowMessage("DEBUG: 2 - Please check your connection and try again");
+
+                        //Return and make sure everything else stops
+                        return false;
+                    }
+
+                    //Save log to file
+                    WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+                    ShowMessage("DEBUG: 3 - We've verified your internet connection, so let's check other potential causes");
+
+                    //Specific to a collection
+                    if (URLLink.Text.Length > 0)
+                    {
+                        ShowMessage("DEBUG: 4 - It looks like you're using a Steam collection");
+                        ShowMessage("DEBUG: 4 - Please make sure that your collection is set to either unlisted or public");
+                        ShowMessage("DEBUG: 4 - Unfortunately if it's set to hidden or friends-only, Conexus can't find it");
+                    }
+                    //Specific to a list of links
+                    else if (URLLink.Text.Length == 0)
+                    {
+                        ShowMessage("DEBUG: 4 - It looks like you're using a list of links");
+                        ShowMessage("DEBUG: 4 - Please make sure that Links.txt is located in Documents\\Conexus\\Links");
+                        ShowMessage("DEBUG: 4 - Also please be sure that each comment starts with * and is one its own line");
+                        ShowMessage("DEBUG: 4 - And that each URL is also on its own line");
+                    }
+
+                    //Save log to file
+                    WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+                    //Let's move on to verifying their OS
+                    //We can just copy/paste this from earlier in the program
+                    if (System.Environment.OSVersion.ToString().Contains("10"))
+                        ShowMessage("DEBUG: 5 - You're using a supported OS, Windows 10");
+                    else
+                        ShowMessage("DEBUG: 5 - Unsupported OS detected, please try again using Windows 10!");
+
+                    //Save log to file
+                    WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+
+                    /*
+                     * 
+                     * Now for the stuff that is a bit less simple to detect 
+                     * (and that I honestly don't want to come up with a solution for,
+                     * (stuff like login you could theoretically parse the steamcmd logs for, but.... Ehhhhhhhhhhh)
+                     * 
+                     * This includes the following:
+                     * 1.) Failure to log in
+                     * 2.) Invalid/corrupt SteamCMD installation
+                     * 3.) Epic/GOG/Pirates
+                     * 
+                     * This, we just need to provide a large block of text and hope for the best
+                     * 
+                    */
+
+                    ShowMessage("DEBUG: 6 - Now for the stuff I can't check directly");
+                    ShowMessage("DEBUG: 6 - First, make sure you entered your Steam credentials correctly");
+                    ShowMessage("DEBUG: 6 - Second, you might want to clear out your SteamCMD installation and start fresh");
+                    ShowMessage("DEBUG: 6 - If you need a refresher, visit this link: https://developer.valvesoftware.com/wiki/SteamCMD#Running_SteamCMD");
+                    ShowMessage("DEBUG: 6 - Third, if you don't own the game on Steam, unfortunately Conexus won't work");
+                    ShowMessage("DEBUG: 6 - Sadly due to technical limitations, I can't support Epic/GOG");
+                    ShowMessage("DEBUG: 6 - Please see this for more details: https://github.com/Hypocrita20XX/Conexus/issues/11");
+                    ShowMessage("DEBUG: 6 - Also, if you're using a pirated version, I can't help you whatsoever");
+                    ShowMessage("DEBUG: 6 - I only support legitimate copies");
+
+
+                    //And now, the "IDK, send me stuff" series of messages
+                    ShowMessage("DEBUG: 7 - If you still can't get Conexus to work, first of all, sorry for the inconvenience!");
+                    ShowMessage("DEBUG: 7 - I'll need you to send me some logs and create an issue on Github: https://github.com/Hypocrita20XX/Conexus/issues");
+                    ShowMessage("DEBUG: 7 - First, I need the logs located in Documents\\Conexus\\Logs");
+                    ShowMessage("DEBUG: 7 - Second, also send the logs in steamcmd\\logs");
+                    ShowMessage("DEBUG: 7 - Just send everything in those folders, thanks!");
+
+                    //Save log to file
+                    WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
+                }
+                else
+                {
+                    ShowMessage("DEBUG: Downloads could not be completed for an unknown reason. Please try again!");
+                }
+            }
+
+            //Return the appropriate value
+            if (e)
+                return true;
+            else if (!e)
+                return false;
+            else
+                return false;
+        }
+
+        //A generic method that takes in a website and appends "generate_204" to the end
+        //Modified from the StackOverflow answer so that it can accept any URL
+        bool CheckForInternetConnection(string URL)
+        {
+            try
+            {
+                using (var client = new WebClient())
+
+                using (client.OpenRead("HTTPS://" + URL + "/generate_204"))
+                {
+                    ShowMessage("PROC: Connecting to: " + URL + ", successful");
+                    return true;
+                }
+            }
+            catch
+            {
+                ShowMessage("PROC: Connecting to: " + URL + ", failed");
+                return false;
+            }
+        }
+
         #endregion
 
         #region Data Saving Functionality
 
-        //Changed v1.3.0, added logging/log saving, exception handling in case userdata is corrupt
         //Called when the UI window has loaded, used to set proper info in the UI from the settings file
         void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            //Added v1.3.0
             //A bunch of checks to make sure every necessary path exists
             if (!Directory.Exists(rootPath))
             {
@@ -1947,7 +2179,6 @@ namespace Conexus
                 Directory.CreateDirectory(linksPath);
                 Directory.CreateDirectory(logsPath);
 
-                //Added v1.3.0
                 ShowMessage("INFO: No folder found in User\\Documents");
                 ShowMessage("INFO: Created Conexus\\Config, Conexus\\Data, Conexus\\Links, and Conexus\\Logs");
             }
@@ -1955,49 +2186,35 @@ namespace Conexus
             if (!Directory.Exists(dataPath))
             {
                 Directory.CreateDirectory(dataPath);
-
-                //Added v1.3.0
                 ShowMessage("WARN: Conexus\\Data missing! Folder created");
             }
 
             if (!Directory.Exists(configPath))
             {
                 Directory.CreateDirectory(configPath);
-
-                //Added v1.3.0
                 ShowMessage("WARN: Conexus\\Config missing! Folder created");
             }
 
             if (!Directory.Exists(linksPath))
             {
                 Directory.CreateDirectory(linksPath);
-
-                //Added v1.3.0
                 ShowMessage("WARN: Conexus\\Links missing! Folder created");
             }
 
             if (!Directory.Exists(logsPath))
             {
                 Directory.CreateDirectory(logsPath);
-
-                //Added v1.3.0
                 ShowMessage("WARN: Conexus\\Logs missing! Folder created");
             }
 
-            //Changed v1.3.0, to use Documents\Conexus
             //Make sure that Links.txt exists
             if (!File.Exists(linksPath + "\\Links.txt"))
             {
                 File.Create(linksPath + "\\Links.txt").Dispose();
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Links.txt not found, creating file");
             }
             else
-            {
-                //Added v1.3.0
                 ShowMessage("VERIFY: Links.txt found");
-            }
 
 
             if (File.ReadAllBytes(configPath + "\\config.ini").Length == 0)
@@ -2014,15 +2231,11 @@ namespace Conexus
 
                 ini["URL"]["Collection"] = "";
 
-                ini["Misc"]["Mode"] = "download";
-                ini["Misc"]["Method"] = "steam";
-
                 ini["Login"]["Username"] = "";
                 ini["Login"]["Password"] = "";
 
                 ini.Persist();
 
-                //Added v1.3.0
                 ShowMessage("VERIFY: Created INI with default settings");
             }
             else
@@ -2039,261 +2252,118 @@ namespace Conexus
 
                 urlcollection = ini["URL"]["Collection"].Replace(@"\\", @"\");
 
-                mode = ini["Misc"]["Mode"].Replace(@"\\", @"\");
-                method = ini["Misc"]["Method"].Replace(@"\\", @"\");
-
                 username = ini["Login"]["Username"].Replace(@"\\", @"\");
                 password = ini["Login"]["Password"].Replace(@"\\", @"\");
 
-                //Added v1.3.0
                 ShowMessage("VERIFY: Loaded INI");
             }
 
-            //Changed v1.3.0, now uses INI
             //Check the contents of the ini variable in the settings file, if so, set the UI variable to it
             if (urlcollection != "")
             {
                 URLLink.Text = urlcollection;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Now showing the saved URL on the UI");
             }
             else
             {
                 URLLink.Text = string.Empty;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: No saved collection URL");
             }
 
-            //Changed v1.3.0, now uses INI
             //Check the contents of the ini variable in the settings file, if so, set the UI variable to it
             if (steamcmd != "")
             {
                 SteamCMDDir.Content = steamcmd;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Saved SteamCMD directory found, now showing on the UI");
             }
             else
             {
                 SteamCMDDir.Content = "Select SteamCMD Directory";
-                //Added v1.3.0
                 ShowMessage("VERIFY: No saved SteamCMD directory found");
             }
 
-            //Changed v1.3.0, now uses INI
             //Check the contents of the ini variable in the settings file, if so, set the UI variable to it
             if (mods != "")
             {
                 ModDir.Content = mods;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Saved mods directory found, now showing on the UI");
             }
             else
             {
                 ModDir.Content = "Select Mods Directory";
-                //Added v1.3.0
                 ShowMessage("VERIFY: No saved mods directory found");
             }
 
-            //Added v1.2.0
-            //Changed v1.3.0, now uses INI
             //Check the contents of the ini variable in the settings file, if so, set the UI variable to it
             if (username != "")
             {
                 SteamUsername.Password = username;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Saved Steam username found, now showing (obscured) on the UI");
             }
             else
             {
                 SteamUsername.Password = "";
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: No saved Steam username found");
             }
-
-            //Added v1.2.0
-            //Changed v1.3.0, now uses INI
             //Check the contents of the ini variable in the settings file, if so, set the UI variable to it
             if (password != "")
             {
                 SteamPassword.Password = password;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Saved Steam password found, now showing (obscured) on the UI");
             }
             else
             {
                 SteamPassword.Password = "";
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: No saved Steam password found");
-            }
-
-            //Changed v1.3.0, now uses INI
-            //Check the platform variable and set the platform combobox accordingly
-            if (method == "steam")
-            {
-                cmbPlatform.SelectedIndex = 0;
-                steam = true;
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: Saved preferred method found: Steam collection");
-            }
-            else if (method == "other")
-            {
-                cmbPlatform.SelectedIndex = 1;
-                steam = false;
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: Saved preferred method found: list of links");
-            }
-
-            //Added v1.3.0
-            if (mode == "download")
-            {
-                //Added v1.3.0
-                cmbMode.SelectedIndex = 0;
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: \"Download Mods\" has been set as the designated mode");
-            }
-            else if (mode == "update")
-            {
-                //Added v1.3.0
-                cmbMode.SelectedIndex = 1;
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: \"Update Mods\" has been set as the designated mode");
-            }
-
-            //Added v1.3.0
-            //A check to see if the user has downloaded mods
-            //Hopefully the simplicity of this solution won't bite me in the butt
-            //If the mods path is not empty, let's check the directory and see if any folders are in there
-            if (mods != "" && Directory.GetDirectories(mods).Length > 0)
-            {
-                //Added v1.3.0
-                mode = "update";
-            }
-            //Otherwise if there is no mods path, let's just assume they need to download
-            else if (mods == "")
-            {
-                //Added v1.3.0
-                mode = "download";
             }
 
             loaded = true;
         }
 
-        //Changed v1.3.0, added logging/log saving
         //Called right after the user indicates they want to close the program (through the use of the "X" button)
         //Used to ensure all proper data is set to their corrosponding variables in the settings file
         void Window_Closing(object sender, EventArgs e)
         {
-            //Changed v1.3.0, now uses INI
-            //Check to ensure the URLLink content is indeed provided (length greater than 0 indicates data in the field)
+            //Check to ensure the URLLink content is indeed provided
             //Make sure the variable in the settings file is correct
             if (urlcollection != "")
             {
-                //Added v1.3.0
                 ini["URL"]["Collection"] = urlcollection;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Chosen collection URL saved");
             }
 
-            //Changed v1.3.0, now uses INI
-            //Check to ensure the SteamCMDDir content is indeed provided (length greater than 0 indicates data in the field)
+            //Check to see if no URL was given
+            if (URLLink.Text.Length == 0)
+            {
+                ini["URL"]["Collection"] = "";
+                ShowMessage("VERIFY: No URL found, clearing any URL saved in the config");
+            }
+
+            //Check to ensure the SteamCMDDir content is indeed provided
             //Make sure the variable in the settings file is correct
             if (steamcmd != "")
             {
-                //Added v1.3.0
                 ini["Directories"]["SteamCMD"] = steamcmd;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Chosen SteamCMD directory saved");
             }
 
-            //Changed v1.3.0, now uses INI
-            //Check to ensure the ModDir content is indeed provided (length greater than 0 indicates data in the field)
+            //Check to ensure the ModDir content is indeed provided
             //Make sure the variable in the settings file is correct
             if (mods != "")
             {
-                //Added v1.3.0
                 ini["Directories"]["Mods"] = mods;
-
-                //Added v1.3.0
                 ShowMessage("VERIFY: Chosen mods directory saved");
             }
 
-            //Changed v1.3.0, now uses INI
-            //Save which platform the user has chosen
-            if (steam)
-            {
-                //Added v1.3.0
-                ini["Misc"]["Method"] = "steam";
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: Chosen method (Steam collection) saved");
-            }
-            //Added v1.3.0
-            else
-            {
-                //Added v1.3.0
-                ini["Misc"]["Method"] = "other";
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: Chosen method (list of links) saved");
-            }
-
-            //Added v1.3.0
-            if (mode == "download")
-            {
-                //Added v1.3.0
-                ini["Misc"]["Mode"] = "update";
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: Mods have been downloaded, Conexus will next start in update mode");
-            }
-
-            if (mods != "" && Directory.GetDirectories(mods).Length > 0)
-            {
-                //Added v1.3.0
-                ini["Misc"]["Mode"] = "update";
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: Mods have been downloaded, Conexus will next start in update mode");
-            }
-            //Otherwise if there is no mods path, let's just assume they need to download
-            else if (mods == "")
-            {
-                //Added v1.3.0
-                ini["Misc"]["Mode"] = "download";
-
-                //Added v1.3.0
-                ShowMessage("VERIFY: Mods have not been downloaded, Conexus will next start in download mode");
-            }
-
-
-            //Added v1.3.0
             ShowMessage("PROC: All user data has been saved!");
-
-            //Added v1.3.0
             ShowMessage("INFO: Conexus will close now");
 
             ini.Persist();
 
-            //Added v1.3.0
             //Save log to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
         }
 
-        //Changed v1.3.0, added logging
         //Final call that happens right after the window starts to close
         //Used to save all relevant data to the settings file
         void Window_Closed(object sender, EventArgs e)
@@ -2301,12 +2371,10 @@ namespace Conexus
             //Save all data to the settings file
             //UserSettings.Default.Save();
 
-            //Added v1.2.0
             //Ensure the Logs folder exists
             if (!Directory.Exists(logsPath))
             {
-                //Added v1.3.0
-                ShowMessage("WARN: _Logs folder is missing! Creating now");
+                ShowMessage("WARN: Logs folder is missing! Creating now");
 
                 Directory.CreateDirectory(logsPath);
             }
@@ -2314,7 +2382,6 @@ namespace Conexus
             //Save log to file
             WriteToFile(log.ToArray(), Path.Combine(logsPath, dateTime + ".txt"));
 
-            //Added v1.3.0
             ini.Persist();
         }
 
