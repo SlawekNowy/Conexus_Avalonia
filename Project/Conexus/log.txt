@@ -1,0 +1,77 @@
+2021-03-28 10:39:46.264 +02:00 [INF] MSBuild registered from C:\Program Files\dotnet\sdk\5.0.201\
+2021-03-28 10:39:46.854 +02:00 [INF] Registered 1 extensions:
+	Default extension
+2021-03-28 10:39:56.022 +02:00 [INF] Initializing upgrade step Select an entrypoint
+2021-03-28 10:39:56.026 +02:00 [INF] Setting entrypoint to only project in solution: D:\Conexus\Project\Conexus\Conexus\Conexus.csproj
+2021-03-28 10:39:56.034 +02:00 [INF] Initializing upgrade step Select project to upgrade
+2021-03-28 10:39:56.134 +02:00 [INF] Initializing upgrade step Back up project
+2021-03-28 10:40:06.090 +02:00 [INF] Applying upgrade step Back up project
+2021-03-28 10:40:08.809 +02:00 [INF] Backing up D:\Conexus\Project\Conexus\Conexus to D:\Conexus\Project\Conexus\Conexus.backup
+2021-03-28 10:40:10.933 +02:00 [INF] Project backed up to D:\Conexus\Project\Conexus\Conexus.backup
+2021-03-28 10:40:10.936 +02:00 [INF] Upgrade step Back up project applied successfully
+2021-03-28 10:40:13.738 +02:00 [INF] Initializing upgrade step Convert project file to SDK style
+2021-03-28 10:40:15.998 +02:00 [INF] Applying upgrade step Convert project file to SDK style
+2021-03-28 10:40:16.002 +02:00 [INF] Converting project file format with try-convert, version 0.7.216201
+2021-03-28 10:40:20.434 +02:00 [INF] [try-convert] D:\Conexus\Project\Conexus\Conexus\Conexus.csproj contains a reference to System.Web, which is not supported on .NET Core. You may have significant work ahead of you to fully port this project.
+2021-03-28 10:40:20.436 +02:00 [INF] [try-convert] D:\Conexus\Project\Conexus\Conexus\Conexus.csproj contains an App.config file. App.config is replaced by appsettings.json in .NET Core. You will need to delete App.config and migrate to appsettings.json if it's applicable to your project.
+2021-03-28 10:40:25.078 +02:00 [INF] [try-convert] Conversion complete!
+2021-03-28 10:40:26.061 +02:00 [INF] Project file converted successfully! The project may require additional changes to build successfully against the new .NET target.
+2021-03-28 10:40:39.361 +02:00 [INF] Upgrade step Convert project file to SDK style applied successfully
+2021-03-28 10:40:41.432 +02:00 [INF] Initializing upgrade step Clean up NuGet package references
+2021-03-28 10:40:46.399 +02:00 [INF] Marking assembly reference System.Configuration for removal based on package mapping configuration System.Configuration
+2021-03-28 10:40:46.404 +02:00 [INF] Adding package System.Configuration.ConfigurationManager based on package mapping configuration System.Configuration
+2021-03-28 10:40:47.389 +02:00 [INF] Reference to .NET Upgrade Assistant analyzer package (Microsoft.DotNet.UpgradeAssistant.Extensions.Default.Analyzers, version 0.2.217201) needs added
+2021-03-28 10:40:47.396 +02:00 [INF] References to be removed:
+System.Configuration
+2021-03-28 10:40:47.398 +02:00 [INF] Packages to be addded:
+System.Configuration.ConfigurationManager, Version=5.0.0
+Microsoft.DotNet.UpgradeAssistant.Extensions.Default.Analyzers, Version=0.2.217201
+2021-03-28 10:40:51.076 +02:00 [INF] Applying upgrade step Clean up NuGet package references
+2021-03-28 10:40:51.086 +02:00 [INF] Removing outdated assembly reference: System.Configuration
+2021-03-28 10:40:51.090 +02:00 [INF] Adding package reference: System.Configuration.ConfigurationManager, Version=5.0.0
+2021-03-28 10:40:51.092 +02:00 [INF] Adding package reference: Microsoft.DotNet.UpgradeAssistant.Extensions.Default.Analyzers, Version=0.2.217201
+2021-03-28 10:40:56.856 +02:00 [INF] Upgrade step Clean up NuGet package references applied successfully
+2021-03-28 10:41:00.806 +02:00 [INF] Initializing upgrade step Update TFM
+2021-03-28 10:41:00.852 +02:00 [INF] TFM needs updated to net5.0-windows
+2021-03-28 10:41:02.351 +02:00 [INF] Applying upgrade step Update TFM
+2021-03-28 10:41:25.326 +02:00 [INF] Updated TFM to net5.0-windows
+2021-03-28 10:41:25.327 +02:00 [INF] Upgrade step Update TFM applied successfully
+2021-03-28 10:41:27.318 +02:00 [INF] Initializing upgrade step Update NuGet Packages
+2021-03-28 10:41:28.989 +02:00 [INF] Marking assembly reference System.Web for removal based on package mapping configuration ASP.NET
+2021-03-28 10:41:28.991 +02:00 [INF] Adding framework reference Microsoft.AspNetCore.App based on package mapping configuration ASP.NET
+2021-03-28 10:41:28.992 +02:00 [INF] Marking assembly reference System.Web.Extensions for removal based on package mapping configuration ASP.NET
+2021-03-28 10:41:29.010 +02:00 [WRN] No version of Extended.Wpf.Toolkit found that supports net5.0-windows; leaving unchanged
+2021-03-28 10:41:30.578 +02:00 [INF] Adding Microsoft.Windows.Compatibility 5.0.2
+2021-03-28 10:41:30.582 +02:00 [INF] References to be removed:
+System.Web
+System.Web.Extensions
+2021-03-28 10:41:30.582 +02:00 [INF] Packages to be addded:
+Microsoft.Windows.Compatibility, Version=5.0.2
+2021-03-28 10:41:30.583 +02:00 [INF] Framework references to be addded:
+Microsoft.AspNetCore.App
+2021-03-28 10:41:34.605 +02:00 [INF] Applying upgrade step Update NuGet Packages
+2021-03-28 10:41:34.608 +02:00 [INF] Removing outdated assembly reference: System.Web
+2021-03-28 10:41:34.610 +02:00 [INF] Removing outdated assembly reference: System.Web.Extensions
+2021-03-28 10:41:34.611 +02:00 [INF] Adding package reference: Microsoft.Windows.Compatibility, Version=5.0.2
+2021-03-28 10:41:34.612 +02:00 [INF] Adding framework reference: Microsoft.AspNetCore.App
+2021-03-28 10:42:42.238 +02:00 [INF] Marking package System.Data.DataSetExtensions for removal because it appears to be a transitive dependency
+2021-03-28 10:42:42.244 +02:00 [INF] Marking package System.Configuration.ConfigurationManager for removal because it appears to be a transitive dependency
+2021-03-28 10:42:42.290 +02:00 [WRN] No version of Extended.Wpf.Toolkit found that supports net5.0-windows; leaving unchanged
+2021-03-28 10:42:42.398 +02:00 [INF] Removing outdated package reference: System.Data.DataSetExtensions, Version=4.5.0
+2021-03-28 10:42:42.399 +02:00 [INF] Removing outdated package reference: System.Configuration.ConfigurationManager, Version=5.0.0
+2021-03-28 10:42:45.241 +02:00 [WRN] No version of Extended.Wpf.Toolkit found that supports net5.0-windows; leaving unchanged
+2021-03-28 10:42:45.373 +02:00 [INF] Upgrade step Update NuGet Packages applied successfully
+2021-03-28 10:42:48.766 +02:00 [INF] Initializing upgrade step Add template files
+2021-03-28 10:42:48.861 +02:00 [INF] 0 expected template items needed
+2021-03-28 10:42:48.862 +02:00 [INF] Initializing upgrade step Upgrade app config files
+2021-03-28 10:42:49.563 +02:00 [INF] Found 0 app settings for upgrade: 
+2021-03-28 10:42:49.569 +02:00 [INF] 0 web page namespace imports need upgraded: 
+2021-03-28 10:42:49.579 +02:00 [INF] Initializing upgrade step Update C# source
+2021-03-28 10:42:53.614 +02:00 [INF] Initializing upgrade step Move to next project
+2021-03-28 10:43:02.348 +02:00 [INF] Applying upgrade step Move to next project
+2021-03-28 10:43:02.351 +02:00 [INF] Upgrade step Move to next project applied successfully
+2021-03-28 10:43:04.793 +02:00 [INF] Initializing upgrade step Finalize upgrade
+2021-03-28 10:43:06.978 +02:00 [INF] Applying upgrade step Finalize upgrade
+2021-03-28 10:43:06.980 +02:00 [INF] Upgrade step Finalize upgrade applied successfully
+2021-03-28 10:43:08.671 +02:00 [INF] Upgrade has completed. Please review any changes.
+2021-03-28 10:43:08.673 +02:00 [INF] Saving upgrade progress file at D:\Conexus\Project\Conexus\Conexus\.upgrade-assistant
